@@ -1,0 +1,200 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 270 60% 5%;
+    --foreground: 260 20% 92%;
+    --card: 270 40% 10%;
+    --card-foreground: 260 20% 92%;
+    --popover: 270 40% 10%;
+    --popover-foreground: 260 20% 92%;
+    --primary: 270 80% 65%;
+    --primary-foreground: 260 30% 6%;
+    --secondary: 270 35% 16%;
+    --secondary-foreground: 260 20% 92%;
+    --muted: 270 25% 14%;
+    --muted-foreground: 260 15% 55%;
+    --accent: 200 90% 55%;
+    --accent-foreground: 260 30% 6%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 270 30% 20%;
+    --input: 270 30% 20%;
+    --ring: 270 80% 65%;
+    --radius: 0.75rem;
+
+    --cosmic-purple: 270 80% 65%;
+    --cosmic-pink: 320 80% 60%;
+    --cosmic-blue: 220 90% 60%;
+    --cosmic-cyan: 190 90% 55%;
+    --cosmic-gold: 45 100% 60%;
+    --cosmic-green: 140 70% 50%;
+    --xp-bar: 270 80% 65%;
+    --glow-primary: 270 80% 65%;
+
+    --font-display: 'Orbitron', monospace;
+    --font-body: 'Space Grotesk', sans-serif;
+
+    --sidebar-background: 270 40% 8%;
+    --sidebar-foreground: 260 20% 92%;
+    --sidebar-primary: 270 80% 65%;
+    --sidebar-primary-foreground: 260 30% 6%;
+    --sidebar-accent: 270 35% 16%;
+    --sidebar-accent-foreground: 260 20% 92%;
+    --sidebar-border: 270 30% 20%;
+    --sidebar-ring: 270 80% 65%;
+  }
+
+  .light {
+    --background: 40 30% 97%;
+    --foreground: 260 30% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 260 30% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 260 30% 12%;
+    --primary: 270 70% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 260 20% 92%;
+    --secondary-foreground: 260 30% 12%;
+    --muted: 260 15% 92%;
+    --muted-foreground: 260 15% 40%;
+    --accent: 200 80% 50%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 260 15% 85%;
+    --input: 260 15% 85%;
+    --ring: 270 70% 55%;
+    --cosmic-purple: 270 70% 55%;
+    --cosmic-pink: 320 70% 55%;
+    --cosmic-blue: 220 80% 55%;
+    --cosmic-cyan: 190 80% 50%;
+    --cosmic-gold: 45 90% 50%;
+    --cosmic-green: 140 60% 45%;
+    --xp-bar: 270 70% 55%;
+    --glow-primary: 270 70% 55%;
+    --sidebar-background: 260 15% 95%;
+    --sidebar-foreground: 260 30% 12%;
+    --sidebar-primary: 270 70% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 260 20% 90%;
+    --sidebar-accent-foreground: 260 30% 12%;
+    --sidebar-border: 260 15% 85%;
+    --sidebar-ring: 270 70% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply text-foreground;
+    font-family: var(--font-body);
+    background: linear-gradient(145deg, #0d0118 0%, #1a0533 30%, #2d0a4e 55%, #4b0082 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+  .light body,
+  body:has(.light) {
+    background: linear-gradient(145deg, #f5f0ff 0%, #ede4ff 30%, #e0d4f5 55%, #d6c8eb 100%);
+    background-attachment: fixed;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+  .font-body {
+    font-family: var(--font-body);
+  }
+  .glow-primary {
+    box-shadow: 0 0 20px hsl(var(--glow-primary) / 0.4), 0 0 60px hsl(var(--glow-primary) / 0.15);
+  }
+  .glow-text {
+    text-shadow: 0 0 20px hsl(var(--glow-primary) / 0.6), 0 0 40px hsl(var(--glow-primary) / 0.3);
+  }
+  .glow-gold {
+    box-shadow: 0 0 20px hsl(var(--cosmic-gold) / 0.5), 0 0 60px hsl(var(--cosmic-gold) / 0.2);
+  }
+  .gradient-cosmic {
+    background: linear-gradient(135deg, hsl(var(--cosmic-purple)), hsl(var(--cosmic-pink)), hsl(var(--cosmic-blue)));
+  }
+  .gradient-cosmic-text {
+    background: linear-gradient(135deg, hsl(var(--cosmic-purple)), hsl(var(--cosmic-pink)), hsl(var(--cosmic-cyan)));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .card-glow:hover {
+    box-shadow: 0 0 30px hsl(var(--glow-primary) / 0.3), 0 0 80px hsl(var(--glow-primary) / 0.1);
+  }
+  .glass-card {
+    background: hsl(var(--card) / 0.55);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid hsl(var(--border) / 0.4);
+  }
+  .glass-card:hover {
+    background: hsl(var(--card) / 0.7);
+    box-shadow: 0 0 30px hsl(var(--glow-primary) / 0.25), 0 0 80px hsl(var(--glow-primary) / 0.08);
+  }
+  .nebula-glow {
+    position: relative;
+  }
+  .nebula-glow::before {
+    content: '';
+    position: absolute;
+    inset: -40%;
+    background: radial-gradient(ellipse at 30% 50%, hsl(270 80% 50% / 0.12) 0%, transparent 60%),
+                radial-gradient(ellipse at 70% 30%, hsl(320 80% 50% / 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, hsl(220 80% 50% / 0.06) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+    animation: nebula-drift 12s ease-in-out infinite alternate;
+  }
+}
+
+@keyframes nebula-drift {
+  0% { transform: scale(1) rotate(0deg); opacity: 0.7; }
+  100% { transform: scale(1.15) rotate(3deg); opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes bounce-gentle {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-float { animation: float 3s ease-in-out infinite; }
+.animate-bounce-gentle { animation: bounce-gentle 2s ease-in-out infinite; }
+.animate-pulse-glow { animation: pulse-glow 2s ease-in-out infinite; }
+.animate-shimmer {
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+/* RTL */
+[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}

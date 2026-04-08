@@ -1,0 +1,102 @@
+/* ─────────────────────────────────────────────────────── */
+/* Friend Orbit Animations                               */
+/* ─────────────────────────────────────────────────────── */
+
+@keyframes orbit-inner {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes orbit-outer {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.orbit-inner {
+  animation: orbit-inner 20s linear infinite;
+  will-change: transform;
+}
+
+.orbit-outer {
+  animation: orbit-outer 35s linear infinite reverse;
+  will-change: transform;
+}
+
+/* ─────────────────────────────────────────────────────── */
+/* Glass and Gradient Effects                            */
+/* ─────────────────────────────────────────────────────── */
+
+.glass-card {
+  background: rgba(139, 92, 246, 0.05);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(139, 92, 246, 0.1);
+}
+
+.gradient-cosmic {
+  background: linear-gradient(135deg, #B366FF 0%, #FF1493 50%, #7C6FF7 100%);
+}
+
+.gradient-cosmic-text {
+  background: linear-gradient(135deg, #B366FF 0%, #FF1493 50%, #7C6FF7 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ─────────────────────────────────────────────────────── */
+/* Theme Colors                                          */
+/* ─────────────────────────────────────────────────────── */
+
+.cosmic-cyan {
+  --color-cosmic-cyan: rgb(124, 111, 247);
+}
+
+.cosmic-gold {
+  --color-cosmic-gold: rgb(255, 215, 0);
+}
+
+.cosmic-green {
+  --color-cosmic-green: rgb(124, 247, 181);
+}
+
+/* ─────────────────────────────────────────────────────── */
+/* Nebula Background Glow                                */
+/* ─────────────────────────────────────────────────────── */
+
+.nebula-glow {
+  position: relative;
+  background: radial-gradient(
+    ellipse at 50% 0%,
+    rgba(124, 111, 247, 0.1) 0%,
+    transparent 70%
+  );
+}
+
+/* ─────────────────────────────────────────────────────── */
+/* Scrollbar Styling                                      */
+/* ─────────────────────────────────────────────────────── */
+
+.max-h-\[380px\]::-webkit-scrollbar {
+  width: 6px;
+}
+
+.max-h-\[380px\]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.max-h-\[380px\]::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 3px;
+}
+
+.max-h-\[380px\]::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
+}

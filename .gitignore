@@ -1,0 +1,45 @@
+# Frontend Dependencies
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+frontend/bun.lockb
+
+# Frontend Build
+frontend/coverage/
+frontend/build/
+
+# Backend Dependencies
+Backend/venv/
+Backend/__pycache__/
+Backend/*.pyc
+Backend/*.pyo
+Backend/env/
+Backend/.venv
+
+# Backend Environment
+Backend/.env
+Backend/.env.local
+Backend/logs/
+Backend/*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+
+# Test Coverage
+coverage/
+.nyc_output/
+
+# Misc
+.env.*.local
+*.pem
+*.key

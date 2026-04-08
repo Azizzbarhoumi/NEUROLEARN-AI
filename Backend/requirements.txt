@@ -1,0 +1,7 @@
+flask
+flask-cors
+mistralai
+groq
+openai
+python-dotenv
+pymupdf
