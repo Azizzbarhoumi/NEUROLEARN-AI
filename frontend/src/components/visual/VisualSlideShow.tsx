@@ -1,10 +1,9 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Play, Pause } from 'lucide-react';
+import { Play, Pause, ChevronLeft, ChevronRight, Check } from 'lucide-react';
 import type { SlidesData } from '@/types/slideTypes';
 import { COLOR_MAP } from '@/types/slideTypes';
 import { useSlideShow } from '@/hooks/useSlideShow';
 import SlideCard from './SlideCard';
-import SlideNavigation from './SlideNavigation';
 import SlideProgress from './SlideProgress';
 import SlideSummary from './SlideSummary';
 
@@ -29,6 +28,8 @@ export default function VisualSlideShow({ data, topic }: VisualSlideShowProps) {
 
   const currentSlide = data.slides[currentIndex];
   const currentColor = COLOR_MAP[currentSlide?.color] || COLOR_MAP.purple;
+  const isFirst = currentIndex === 0;
+  const isLast = currentIndex === data.slides.length - 1;
 
   if (isComplete) {
     return (
@@ -42,61 +43,82 @@ export default function VisualSlideShow({ data, topic }: VisualSlideShowProps) {
   }
 
   return (
-    <div className="space-y-0">
-      {/* Top bar */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h2 className="font-display text-sm font-bold gradient-cosmic-text">
-            {data.title}
-          </h2>
-          <p className="text-xs text-muted-foreground font-body mt-0.5">
-            Slide {currentIndex + 1} of {data.slides.length}
-          </p>
-        </div>
-
-        {/* Autoplay toggle */}
+    <div className="space-y-4">
+      {/* Top Navigation Bar */}
+      <div className="flex items-center justify-between px-2">
+        {/* Prev Button */}
         <button
-          onClick={toggleAutoPlay}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-display transition-all hover:scale-105"
+          onClick={goPrev}
+          disabled={isFirst}
+          className="flex items-center gap-2 px-5 py-3 rounded-xl font-display text-sm font-bold transition-all hover:scale-105 disabled:opacity-30 disabled:hover:scale-100"
           style={{
-            background: isAutoPlaying ? currentColor.tint : 'hsl(var(--secondary))',
-            border: isAutoPlaying ? `1px solid ${currentColor.accent}44` : '1px solid transparent',
-            color: isAutoPlaying ? currentColor.accent : undefined,
+            background: 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.12)',
+            color: '#ffffff',
           }}
         >
-          {isAutoPlaying ? (
+          <ChevronLeft className="w-5 h-5" />
+          <span className="hidden sm:inline">Previous</span>
+        </button>
+
+        {/* Center: Title + Dots */}
+        <div className="flex flex-col items-center gap-2">
+          <h2 className="font-display text-lg font-bold gradient-cosmic-text">
+            {data.title}
+          </h2>
+          <div className="flex items-center gap-2">
+            {data.slides.map((s, i) => {
+              const dotColor = COLOR_MAP[s.color] || COLOR_MAP.purple;
+              const isActive = i === currentIndex;
+              return (
+                <button
+                  key={i}
+                  onClick={() => goToSlide(i)}
+                  className="transition-all duration-300 rounded-full"
+                  style={{
+                    width: isActive ? 28 : 10,
+                    height: 10,
+                    background: isActive ? dotColor.accent : 'rgba(255,255,255,0.2)',
+                    boxShadow: isActive ? `0 0 10px ${dotColor.accent}88` : undefined,
+                  }}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Next / Finish Button */}
+        <button
+          onClick={goNext}
+          className="flex items-center gap-2 px-5 py-3 rounded-xl font-display text-sm font-bold transition-all hover:scale-105"
+          style={{
+            background: isLast 
+              ? 'linear-gradient(135deg, #7C6FF7 0%, #60B8FF 100%)' 
+              : 'rgba(255,255,255,0.08)',
+            border: isLast ? 'none' : '1px solid rgba(255,255,255,0.12)',
+            color: '#ffffff',
+            boxShadow: isLast ? '0 4px 20px rgba(124,111,247,0.4)' : undefined,
+          }}
+        >
+          {isLast ? (
             <>
-              <div className="relative w-4 h-4">
-                <Pause className="w-4 h-4" />
-                {/* Spinning progress ring */}
-                <svg
-                  className="absolute -inset-1 w-6 h-6"
-                  viewBox="0 0 24 24"
-                  style={{ animation: 'spin 2s linear infinite' }}
-                >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    fill="none"
-                    stroke={currentColor.accent}
-                    strokeWidth="2"
-                    strokeDasharray="62.8"
-                    strokeDashoffset={62.8 - (62.8 * countdown) / 100}
-                    strokeLinecap="round"
-                    opacity={0.6}
-                  />
-                </svg>
-              </div>
-              Playing
+              <span className="hidden sm:inline">Finish</span> 🎉
+              <Check className="w-5 h-5" />
             </>
           ) : (
             <>
-              <Play className="w-4 h-4" />
-              Auto Play
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRight className="w-5 h-5" />
             </>
           )}
         </button>
+      </div>
+
+      {/* Slide Counter */}
+      <div className="text-center">
+        <span className="text-sm font-body text-muted-foreground">
+          Slide {currentIndex + 1} of {data.slides.length} ✨
+        </span>
       </div>
 
       {/* Slide area */}
@@ -118,15 +140,30 @@ export default function VisualSlideShow({ data, topic }: VisualSlideShowProps) {
         color={currentColor.accent}
       />
 
-      {/* Navigation */}
-      <SlideNavigation
-        currentIndex={currentIndex}
-        total={data.slides.length}
-        slides={data.slides}
-        onPrev={goPrev}
-        onNext={goNext}
-        onDot={goToSlide}
-      />
+      {/* Autoplay toggle */}
+      <div className="flex justify-center">
+        <button
+          onClick={toggleAutoPlay}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-display font-medium transition-all hover:scale-105"
+          style={{
+            background: isAutoPlaying ? currentColor.tint : 'rgba(255,255,255,0.08)',
+            border: `1px solid ${isAutoPlaying ? currentColor.accent + '66' : 'rgba(255,255,255,0.12)'}`,
+            color: isAutoPlaying ? currentColor.accent : 'rgba(255,255,255,0.7)',
+          }}
+        >
+          {isAutoPlaying ? (
+            <>
+              <Pause className="w-4 h-4" />
+              <span className="hidden sm:inline">Playing...</span>
+            </>
+          ) : (
+            <>
+              <Play className="w-4 h-4" />
+              <span className="hidden sm:inline">Auto Play</span>
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 }

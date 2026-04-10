@@ -4,12 +4,17 @@
  */
 
 export interface Slide {
-  slide: number;
+  slide?: number;
+  slide_number?: number;
   title: string;
-  content: string;
-  visual_hint: string;
-  key_term: string;
-  color: 'purple' | 'blue' | 'green' | 'yellow' | 'coral';
+  content?: string;
+  visual_hint?: string;
+  key_term?: string;
+  color?: 'purple' | 'blue' | 'green' | 'yellow' | 'coral';
+  html_content?: string;
+  speaker_notes?: string;
+  diagram_prompt?: string;
+  diagram_image_url?: string;
 }
 
 export interface SlidesData {
