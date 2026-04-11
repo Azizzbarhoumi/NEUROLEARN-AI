@@ -215,41 +215,114 @@ Wrap in ```json code block."""
             f"[Visual] Total slides: {len(slides)}, Slides with diagram_prompt: {diagram_count}"
         )
 
-        if isinstance(slides, list) and slides and os.getenv("NAPKIN_API_KEY"):
+        if isinstance(slides, list) and slides:
+            # Get first slide with diagram_prompt
+            first_slide_with_prompt = next(
+                (
+                    s
+                    for s in slides
+                    if isinstance(s, dict) and s.get("diagram_prompt", "").strip()
+                ),
+                None,
+            )
+
+            # Decide strategy: Napkin (if key exists + works) or Mermaid
+            use_napkin = False
+            has_napkin_key = bool(os.getenv("NAPKIN_API_KEY"))
+
+            if has_napkin_key and first_slide_with_prompt:
+                diagram_prompt = first_slide_with_prompt.get("diagram_prompt")
+                print(
+                    f"[Napkin] Testing diagram generation for: {first_slide_with_prompt.get('title', 'Untitled')}"
+                )
+
+                napkin_prompt = f"""Create an educational diagram for {subject} topic: {topic} (in {lang_name}).
+
+Slide concept: {diagram_prompt}
+
+Make it SIMPLE, CLEAR, and EDUCATIONAL for students ages 10-18.
+Use labels in {lang_name} and clear visual hierarchy."""
+
+                test_result = generate_napkin_visual(
+                    text=napkin_prompt,
+                    style="colorful",
+                    visual_type="auto",
+                    language=language,
+                )
+                use_napkin = test_result and test_result.get("success")
+                if use_napkin:
+                    print(f"[Napkin] SUCCESS - using Napkin for all slides")
+                else:
+                    print(f"[Napkin failed - using Mermaid for all slides")
+
+            # Generate diagrams for ALL slides based on decision
+            from tools.mermaid_handler import generate_mermaid_svg
+
             for slide in slides:
                 if isinstance(slide, dict):
                     diagram_prompt = slide.get("diagram_prompt")
                     if diagram_prompt and diagram_prompt.strip():
                         try:
-                            print(
-                                f"[Napkin] Generating diagram for slide: {slide.get('title', 'Untitled')}"
-                            )
-                            # Create a clear, educational prompt for Napkin in the correct language
-                            napkin_prompt = f"""Create an educational diagram for {subject} topic: {topic} (in {lang_name}).
+                            if use_napkin:
+                                napkin_prompt = f"""Create an educational diagram for {subject} topic: {topic} (in {lang_name}).
 
 Slide concept: {diagram_prompt}
 
 Make it SIMPLE, CLEAR, and EDUCATIONAL for students ages 10-18.
-Use labels in {lang_name} and clear visual hierarchy.
-The entire diagram text and labels must be in {lang_name}."""
+Use labels in {lang_name}."""
 
-                            diagram_result = generate_napkin_visual(
-                                text=napkin_prompt,
-                                style="colorful",
-                                visual_type="auto",
-                                language=language,
-                            )
-                            if diagram_result and diagram_result.get("success"):
-                                slide["diagram_image_url"] = diagram_result.get(
-                                    "image_url"
+                                diagram_result = generate_napkin_visual(
+                                    text=napkin_prompt,
+                                    style="colorful",
+                                    visual_type="auto",
+                                    language=language,
                                 )
-                                print(
-                                    f"[Napkin] SUCCESS: {diagram_result.get('image_url')}"
-                                )
+                                if diagram_result and diagram_result.get("success"):
+                                    slide["diagram_image_url"] = diagram_result.get(
+                                        "image_url"
+                                    )
+                                    print(
+                                        f"[Napkin] {slide.get('title', 'Untitled')}: diagram generated"
+                                    )
+                                else:
+                                    print(
+                                        f"[Napkin] {slide.get('title', 'Untitled')}: failed, trying Mermaid..."
+                                    )
+                                    mermaid_result = generate_mermaid_svg(
+                                        diagram_prompt, language=language
+                                    )
+                                    if mermaid_result and mermaid_result.get("success"):
+                                        slide["diagram_mermaid_code"] = (
+                                            mermaid_result.get("mermaid_code")
+                                        )
+                                        print(
+                                            f"[Mermaid] {slide.get('title', 'Untitled')}: SUCCESS"
+                                        )
+                                    else:
+                                        print(
+                                            f"[Mermaid] {slide.get('title', 'Untitled')}: failed"
+                                        )
+                                        if not slide.get("visual_hint"):
+                                            slide["visual_hint"] = diagram_prompt
                             else:
-                                print(f"[Napkin] FAILED: {diagram_result}")
+                                mermaid_result = generate_mermaid_svg(
+                                    diagram_prompt, language=language
+                                )
+                                if mermaid_result and mermaid_result.get("success"):
+                                    slide["diagram_mermaid_code"] = mermaid_result.get(
+                                        "mermaid_code"
+                                    )
+                                    print(
+                                        f"[Mermaid] {slide.get('title', 'Untitled')}: SUCCESS"
+                                    )
+                                else:
+                                    print(
+                                        f"[Mermaid] {slide.get('title', 'Untitled')}: failed, leaving for frontend"
+                                    )
+                                    if not slide.get("visual_hint"):
+                                        slide["visual_hint"] = diagram_prompt
                         except Exception as e:
-                            print(f"[Napkin] Skipping: {str(e)[:50]}")
+                            print(f"[Diagram] Skipping: {str(e)[:50]}")
 
         return result
 

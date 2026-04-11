@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import type { Slide } from '@/types/slideTypes';
 import { COLOR_MAP } from '@/types/slideTypes';
+import MermaidRenderer from './MermaidRenderer';
 
 const IFRAME_BASE_STYLES = `
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -244,6 +245,17 @@ ${slide.html_content}
                   className="w-full rounded-lg"
                   style={{ maxHeight: '500px', objectFit: 'contain' }}
                 />
+              </div>
+            </div>
+          )}
+          {/* Mermaid diagram */}
+          {(slide as any).diagram_mermaid_code && (
+            <div className="rounded-xl overflow-hidden border border-white/10 bg-card/50">
+              <div className="px-3 py-2 text-[10px] font-display font-bold uppercase tracking-widest flex items-center gap-2" style={{ color: color.accent, background: color.tint }}>
+                <span className="text-base">📊</span> Educational Diagram
+              </div>
+              <div className="p-3">
+                <MermaidRenderer code={(slide as any).diagram_mermaid_code} />
               </div>
             </div>
           )}

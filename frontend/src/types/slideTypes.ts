@@ -5,7 +5,7 @@
 
 export interface Slide {
   slide?: number;
-  slide_number?: number;
+  slide_number?: string;
   title: string;
   content?: string;
   visual_hint?: string;
@@ -15,6 +15,8 @@ export interface Slide {
   speaker_notes?: string;
   diagram_prompt?: string;
   diagram_image_url?: string;
+  diagram_svg?: string;
+  diagram_mermaid_code?: string;
 }
 
 export interface SlidesData {
