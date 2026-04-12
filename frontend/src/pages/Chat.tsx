@@ -7,8 +7,9 @@ import { getCharacterImage } from '@/data/characterImages';
 import { getCharacter } from '@/data/characters';
 import ParticleBackground from '@/components/ParticleBackground';
 import { TopControls } from '@/components/TopControls';
-import { ArrowLeft, Send, Loader2, BookOpen, ListOrdered, Presentation, Sparkles, Image } from 'lucide-react';
+import { ArrowLeft, Send, Loader2, BookOpen, ListOrdered, Presentation, Sparkles, Image, Play, Pause, Headphones } from 'lucide-react';
 import { explainTopic, chatFollowup, type ExplainData } from '@/lib/api';
+import { getBestVoiceForLanguage } from './VoiceMode';
 import ReactMarkdown from 'react-markdown';
 
 interface Message {
@@ -199,6 +200,158 @@ function ChatDiagram({ description, imageUrl }: { description?: string; imageUrl
   );
 }
 
+// Auditory component for chat
+function ChatAuditory({ data, title }: { data: any; title?: string }) {
+  const [playing, setPlaying] = useState(false);
+  const [currentSegment, setCurrentSegment] = useState(0);
+  const [highlightWord, setHighlightWord] = useState(-1);
+  const utterRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  const texts: string[] = [];
+  if (data?.greeting && typeof data.greeting === 'string') texts.push(data.greeting);
+  if (data?.segments && Array.isArray(data.segments)) {
+    data.segments.forEach((s: any) => {
+      const segTitle = s.title || '';
+      const segText = s.text || '';
+      const combined = segTitle ? `${segTitle}. ${segText}` : segText;
+      if (combined && !combined.startsWith('{') && !combined.startsWith('[')) {
+        texts.push(combined);
+      }
+    });
+  }
+  if (data?.analogy && typeof data.analogy === 'string') {
+    texts.push(`Here's an analogy: ${data.analogy}`);
+  }
+  if (data?.memory_trick && typeof data.memory_trick === 'string') {
+    texts.push(`Memory trick: ${data.memory_trick}`);
+  }
+  if (data?.encouragement && typeof data.encouragement === 'string') {
+    texts.push(data.encouragement);
+  }
+  if (texts.length === 0 && typeof data === 'string') {
+    texts.push(data);
+  } else if (texts.length === 0 && data?.response && typeof data.response === 'string') {
+    texts.push(data.response);
+  }
+
+  const speakText = (text: string, onEnd?: () => void) => {
+    if (!text || text === 'undefined' || text === 'null') {
+      onEnd?.(); return;
+    }
+    const trimmed = text.trim();
+    if ((trimmed.startsWith('{') && trimmed.includes('"format"')) ||
+        (trimmed.startsWith('[') && trimmed.includes('"segment"'))) {
+      onEnd?.(); return;
+    }
+
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1;
+
+    const currentLanguage = localStorage.getItem('neurolearn-lang') || 'en';
+    const voice = getBestVoiceForLanguage(currentLanguage);
+    if (voice) {
+      u.voice = voice;
+      u.lang = voice.lang;
+    }
+
+    const words = text.split(' ');
+    u.onboundary = (e) => {
+      if (e.name === 'word') {
+        const charIdx = e.charIndex;
+        let wordIdx = 0;
+        let count = 0;
+        for (let i = 0; i < words.length; i++) {
+          if (count >= charIdx) { wordIdx = i; break; }
+          count += words[i].length + 1;
+        }
+        setHighlightWord(wordIdx);
+      }
+    };
+    u.onend = () => { setHighlightWord(-1); onEnd?.(); };
+    utterRef.current = u;
+    window.speechSynthesis.speak(u);
+  };
+
+  const playSegment = (idx: number) => {
+    if (idx >= texts.length) {
+      setPlaying(false);
+      setCurrentSegment(0);
+      return;
+    }
+    setCurrentSegment(idx);
+    speakText(texts[idx], () => playSegment(idx + 1));
+  };
+
+  const playAll = () => {
+    if (!texts.length) return;
+    setPlaying(true);
+    playSegment(currentSegment);
+  };
+
+  const togglePlay = () => {
+    if (playing) {
+      window.speechSynthesis.cancel();
+      setPlaying(false);
+    } else {
+      playAll();
+    }
+  };
+
+  useEffect(() => {
+    return () => { window.speechSynthesis.cancel(); };
+  }, []);
+
+  const progress = texts.length > 0 ? ((currentSegment + (playing ? 1 : 0)) / texts.length) * 100 : 0;
+
+  const renderTextWithHighlights = () => {
+    if (texts.length === 0) return null;
+    const currentText = texts[currentSegment] || '';
+    const words = currentText.split(' ');
+    
+    return (
+      <div className="p-4 bg-card/60 border border-border/50 rounded-xl leading-relaxed text-sm font-body">
+         {words.map((w, i) => (
+           <span key={i} className={`transition-colors duration-200 ${
+             playing && i === highlightWord ? 'bg-primary/30 text-primary font-bold px-1 rounded' : 'text-foreground'
+           }`}>
+             {w}{' '}
+           </span>
+         ))}
+      </div>
+    );
+  };
+
+  return (
+    <div className="rounded-xl overflow-hidden border border-primary/20 bg-card/90 my-2">
+      <div className="px-4 py-3 bg-gradient-to-r from-primary/20 to-transparent border-b border-primary/10 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Headphones className="w-4 h-4 text-primary" />
+          <span className="text-xs font-display font-semibold text-primary">{title || 'Auditory Explanation'}</span>
+        </div>
+        
+        <button 
+          onClick={togglePlay}
+          className="w-8 h-8 rounded-full bg-primary/20 hover:bg-primary border border-primary/30 flex items-center justify-center transition-all text-primary hover:text-primary-foreground focus:outline-none"
+        >
+          {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+        </button>
+      </div>
+      
+      <div className="h-1 bg-border/50 w-full">
+        <div 
+          className="h-full bg-gradient-to-r from-primary to-cosmic-purple transition-all duration-300"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      <div className="p-4">
+        {renderTextWithHighlights()}
+      </div>
+    </div>
+  );
+}
+
 export default function Chat() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -289,8 +442,9 @@ export default function Chat() {
         const data = await explainTopic(text, style, 'general');
         messageFormat = data.format;
         richContent = data;
-        // Only set responseText for text/auditory, not for rich content formats
-        responseText = (data.format === 'text' || data.format === 'auditory') 
+        // Only set responseText for text-like/auditory, not for rich content formats
+        const fmt2 = data.format as string;
+        responseText = (fmt2 === 'text' || fmt2 === 'auditory' || fmt2 === 'logical') 
           ? formatExplainResponse(data) 
           : '';
       } else {
@@ -308,27 +462,57 @@ export default function Chat() {
         );
 
         // Handle different response formats
+        // Note: For auditory style, the backend overrides format to "auditory"
+        // but the underlying content can be steps, slides, narrative, etc.
+        const fmt = chatData.format;
         
-        if (chatData.format === 'steps') {
+        if (fmt === 'steps' || (fmt === 'auditory' && chatData.steps)) {
           messageFormat = 'steps';
           richContent = chatData;
           responseText = '';
-        } else if (chatData.format === 'slides') {
+        } else if (fmt === 'slides' || (fmt === 'auditory' && chatData.slides)) {
           messageFormat = 'slides';
-          // Slides might be in response.slides or directly in chatData
-          richContent = chatData.response?.slides ? chatData.response : chatData;
+          const resp = chatData.response;
+          richContent = (resp && typeof resp === 'object' && (resp as any).slides) ? resp : chatData;
           responseText = '';
-        } else if (chatData.format === 'narrative') {
+        } else if (fmt === 'narrative' || (fmt === 'auditory' && (chatData.story || (chatData as any).hook))) {
           messageFormat = 'narrative';
           richContent = chatData.response || chatData;
           responseText = '';
-        } else if (chatData.format === 'diagram') {
+        } else if (fmt === 'diagram' || (fmt === 'auditory' && chatData.image_url)) {
           messageFormat = 'diagram';
           richContent = chatData;
           responseText = '';
-        } else if (chatData.format === 'text') {
+        } else if (fmt === 'text') {
           messageFormat = 'text';
           responseText = chatData.response || '';
+        } else if (fmt === 'auditory') {
+          // Pure auditory text response
+          messageFormat = 'auditory';
+          richContent = chatData.response && typeof chatData.response === 'object' 
+            ? chatData.response 
+            : chatData;
+          
+          const resp = chatData.response;
+          if (typeof resp === 'string') {
+            responseText = resp;
+          } else if (resp && typeof resp === 'object') {
+            // Build readable text from auditory response object
+            let aud = '';
+            if ((resp as any).greeting) aud += `${(resp as any).greeting}\n\n`;
+            if ((resp as any).segments) {
+              (resp as any).segments.forEach((s: any) => {
+                if (s.title) aud += `**${s.title}:**\n`;
+                if (s.text) aud += `${s.text}\n\n`;
+              });
+            }
+            if ((resp as any).analogy) aud += `💡 **Analogy:** ${(resp as any).analogy}\n\n`;
+            if ((resp as any).memory_trick) aud += `🧠 **Memory Trick:** ${(resp as any).memory_trick}\n\n`;
+            if ((resp as any).encouragement) aud += `${(resp as any).encouragement}`;
+            responseText = aud || JSON.stringify(resp);
+          } else {
+            responseText = '';
+          }
         } else {
           // Default to text response
           messageFormat = 'text';
@@ -455,9 +639,12 @@ export default function Chat() {
                       imageUrl={msg.richContent.image_url} 
                     />
                   )}
+                  {msg.format === 'auditory' && msg.richContent && (
+                    <ChatAuditory data={msg.richContent} title={msg.richContent.title || 'Audio Explanation'} />
+                  )}
                   
                   {/* Text content - show for text format or when no rich content */}
-                  {(msg.format === 'text' || !msg.format || msg.format === 'logical' || msg.format === 'auditory') && msg.content && msg.content.trim() && (
+                  {(msg.format === 'text' || !msg.format || msg.format === 'logical' || (msg.format === 'auditory' && !msg.richContent)) && msg.content && msg.content.trim() && (
                     <div className="prose prose-sm max-w-none dark:prose-invert prose-p:leading-relaxed prose-pre:p-0 prose-strong:text-cosmic-gold">
                       <ReactMarkdown>
                         {msg.content}

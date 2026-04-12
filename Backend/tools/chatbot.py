@@ -237,7 +237,6 @@ The entire diagram text and labels must be in {lang_name}."""
                                 text=napkin_prompt,
                                 style="colorful",
                                 visual_type="auto",
-                                language=language,
                             )
                             if diagram_result and diagram_result.get("success"):
                                 slide["diagram_image_url"] = diagram_result.get(
@@ -491,12 +490,121 @@ Return this exact JSON:
 
 Generate exactly 3 segments. Write ALL text as natural spoken language. No bullet points anywhere."""
 
-    text = ask_groq(system, prompt, max_tokens=1500)
+    text = ask_groq(system, prompt, max_tokens=2500)
+    
+    # Step 1: Parse JSON from Groq response
+    result = None
     try:
-        return json.loads(text)
+        result = json.loads(text)
     except json.JSONDecodeError:
+        # Try cleaning markdown code blocks
+        import re
         clean = text.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean)
+        try:
+            result = json.loads(clean)
+        except:
+            # Try regex extraction
+            json_match = re.search(r'\{[\s\S]*\}', clean)
+            if json_match:
+                try:
+                    result = json.loads(json_match.group())
+                except:
+                    result = None
+            
+            # If still failing, try to repair truncated JSON
+            if result is None:
+                try:
+                    # The response may be cut off - try to close it
+                    repair = clean.rstrip()
+                    # Close any open strings
+                    if repair.count('"') % 2 != 0:
+                        repair += '"'
+                    # Close open brackets/braces
+                    open_brackets = repair.count('[') - repair.count(']')
+                    open_braces = repair.count('{') - repair.count('}')
+                    for _ in range(open_brackets):
+                        repair += ']'
+                    for _ in range(open_braces):
+                        repair += '}'
+                    result = json.loads(repair)
+                except:
+                    result = None
+    
+    # If all parsing failed, return minimal valid response
+    if result is None:
+        return {
+            "format": "auditory",
+            "title": topic,
+            "greeting": f"Let me explain {topic} to you.",
+            "segments": [{"segment": 1, "title": "Explanation", "text": f"I'd like to explain {topic} but I'm having a temporary issue. Please try again."}],
+            "language": language,
+            "has_audio": False,
+            "note": "Parsing failed - text fallback provided"
+        }
+    
+    # Ensure format field
+    if "format" not in result:
+        result["format"] = "auditory"
+    
+    # Step 2: Try to generate TTS audio (non-fatal - content is preserved regardless)
+    has_audio_components = False
+    try:
+        from tools.tts_handler import text_to_speech
+        
+        # Generate audio for greeting
+        if result.get("greeting"):
+            greeting_tts = text_to_speech(result["greeting"], language=language)
+            if greeting_tts.get("success") and greeting_tts.get("audio_base64"):
+                result["greeting_audio"] = greeting_tts.get("audio_base64")
+                has_audio_components = True
+        
+        # Generate audio for each segment
+        if result.get("segments"):
+            for segment in result["segments"]:
+                if segment.get("text"):
+                    segment_tts = text_to_speech(segment["text"], language=language)
+                    if segment_tts.get("success") and segment_tts.get("audio_base64"):
+                        segment["audio_base64"] = segment_tts.get("audio_base64")
+                        has_audio_components = True
+        
+        # Generate audio for analogy
+        if result.get("analogy"):
+            analogy_tts = text_to_speech(result["analogy"], language=language)
+            if analogy_tts.get("success") and analogy_tts.get("audio_base64"):
+                result["analogy_audio"] = analogy_tts.get("audio_base64")
+                has_audio_components = True
+        
+        # Generate audio for memory trick
+        if result.get("memory_trick"):
+            trick_tts = text_to_speech(result["memory_trick"], language=language)
+            if trick_tts.get("success") and trick_tts.get("audio_base64"):
+                result["memory_trick_audio"] = trick_tts.get("audio_base64")
+                has_audio_components = True
+        
+        # Generate audio for check-in
+        if result.get("check_in"):
+            checkin_tts = text_to_speech(result["check_in"], language=language)
+            if checkin_tts.get("success") and checkin_tts.get("audio_base64"):
+                result["check_in_audio"] = checkin_tts.get("audio_base64")
+                has_audio_components = True
+        
+        # Generate audio for encouragement
+        if result.get("encouragement"):
+            enc_tts = text_to_speech(result["encouragement"], language=language)
+            if enc_tts.get("success") and enc_tts.get("audio_base64"):
+                result["encouragement_audio"] = enc_tts.get("audio_base64")
+                has_audio_components = True
+    except Exception as tts_error:
+        # TTS failed but we still have the content - that's fine
+        print(f"[Auditory] TTS generation failed: {str(tts_error)[:100]}")
+    
+    result["language"] = language
+    result["has_audio"] = has_audio_components
+    
+    if not has_audio_components:
+        result["note"] = "Audio generation currently unavailable. Text explanation provided."
+    
+    return result
 
 
 # ── Follow-up Chat ─────────────────────────────────────────────
@@ -522,6 +630,12 @@ def chat_followup(
     for msg in last_messages:
         role = "Student" if msg.get("role") == "user" else "NeuroLearn AI"
         history_text += f"{role}: {msg.get('content', '')}\n\n"
+
+    # For auditory style, generate TTS response directly
+    if style == "auditory":
+        return _generate_auditory_response(
+            topic, question, history_text, lang_instruction, language
+        )
 
     # First, detect what type of response would be best
     detection_system = f"""You are NeuroLearn AI, analyzing a student question to determine the best response format.
@@ -561,30 +675,30 @@ Return only JSON with response_type and reason."""
     # Now generate the appropriate response based on detected type
     if response_type == "steps":
         return _generate_steps_response(
-            topic, style, question, history_text, lang_instruction
+            topic, style, question, history_text, lang_instruction, language
         )
     elif response_type == "slides":
         return _generate_slides_response(
-            topic, style, question, history_text, lang_instruction
+            topic, style, question, history_text, lang_instruction, language
         )
     elif response_type == "story":
         return _generate_story_response(
-            topic, style, question, history_text, lang_instruction
+            topic, style, question, history_text, lang_instruction, language
         )
     elif response_type == "diagram":
         return _generate_diagram_response(
-            topic, style, question, history_text, lang_instruction
+            topic, style, question, history_text, lang_instruction, language
         )
     else:
         return _generate_text_response(
-            topic, style, question, history_text, lang_instruction
+            topic, style, question, history_text, lang_instruction, language
         )
 
 
 def _generate_text_response(
-    topic: str, style: str, question: str, history_text: str, lang_instruction: str
+    topic: str, style: str, question: str, history_text: str, lang_instruction: str, language: str = "en"
 ) -> dict:
-    """Generate a simple text response."""
+    """Generate a simple text response. For auditory style, also add TTS audio."""
     system = f"""You are NeuroLearn AI, a friendly STEM tutor.
 Topic: {topic}
 Student style: {style}
@@ -600,13 +714,28 @@ Student: {question}
 Tutor:"""
 
     text = ask_groq(system, prompt, max_tokens=600)
-    return {"response": text, "format": "text"}
+    result = {"response": text, "format": "text"}
+    
+    # If auditory style, add TTS audio (non-fatal)
+    if style == "auditory":
+        try:
+            from tools.tts_handler import text_to_speech
+            tts_result = text_to_speech(text, language=language)
+            if tts_result.get("success") and tts_result.get("audio_base64"):
+                result["audio_base64"] = tts_result.get("audio_base64")
+                result["format"] = "auditory"
+                result["audio_format"] = "audio/mpeg"
+                result["voice"] = tts_result.get("voice")
+        except Exception as tts_err:
+            print(f"[Chat] TTS failed for text response: {str(tts_err)[:80]}")
+    
+    return result
 
 
 def _generate_steps_response(
-    topic: str, style: str, question: str, history_text: str, lang_instruction: str
+    topic: str, style: str, question: str, history_text: str, lang_instruction: str, language: str = "en"
 ) -> dict:
-    """Generate a step-by-step response."""
+    """Generate a step-by-step response. For auditory style, also add TTS audio to each step."""
     system = f"""You are NeuroLearn AI, a STEM tutor.
 Topic: {topic}
 Student style: {style}
@@ -638,15 +767,42 @@ Generate 3-5 clear steps."""
     text = ask_groq(system, prompt, max_tokens=1200)
     try:
         result = json.loads(text.replace("```json", "").replace("```", "").strip())
-        return result
     except:
-        return {"response": text, "format": "text"}
+        response_text = text[:500] if text else "Unable to generate steps"
+        return {"response": response_text, "format": "text"}
+    
+    # If auditory style, generate TTS (non-fatal)
+    if style == "auditory":
+        try:
+            from tools.tts_handler import text_to_speech
+            result["format"] = "auditory"
+            
+            if result.get("title"):
+                title_tts = text_to_speech(result["title"], language=language)
+                if title_tts.get("success") and title_tts.get("audio_base64"):
+                    result["title_audio"] = title_tts.get("audio_base64")
+            
+            if result.get("steps"):
+                for step in result["steps"]:
+                    if step.get("content"):
+                        content_tts = text_to_speech(step["content"], language=language)
+                        if content_tts.get("success") and content_tts.get("audio_base64"):
+                            step["audio_base64"] = content_tts.get("audio_base64")
+            
+            if result.get("summary"):
+                summary_tts = text_to_speech(result["summary"], language=language)
+                if summary_tts.get("success") and summary_tts.get("audio_base64"):
+                    result["summary_audio"] = summary_tts.get("audio_base64")
+        except Exception as tts_err:
+            print(f"[Chat] TTS failed for steps response: {str(tts_err)[:80]}")
+    
+    return result
 
 
 def _generate_slides_response(
-    topic: str, style: str, question: str, history_text: str, lang_instruction: str
+    topic: str, style: str, question: str, history_text: str, lang_instruction: str, language: str = "en"
 ) -> dict:
-    """Generate a mini visual response with slides."""
+    """Generate a mini visual response with slides. For auditory style, also add TTS audio."""
     system = f"""You are NeuroLearn AI, creating visual explanations.
 Topic: {topic}
 {lang_instruction}
@@ -675,15 +831,43 @@ Make HTML self-contained with inline styles, dark backgrounds, emojis."""
     text = ask_groq(system, prompt, max_tokens=1500)
     try:
         result = json.loads(text.replace("```json", "").replace("```", "").strip())
-        return result
     except:
         return {"response": text, "format": "text"}
+    
+    # If auditory style, generate TTS (non-fatal)
+    if style == "auditory":
+        try:
+            from tools.tts_handler import text_to_speech
+            result["format"] = "auditory"
+            
+            if result.get("slides"):
+                for slide in result["slides"]:
+                    content_parts = []
+                    if slide.get("title"):
+                        content_parts.append(slide["title"])
+                    if slide.get("key_term"):
+                        content_parts.append(f"Key term: {slide['key_term']}")
+                    
+                    if content_parts:
+                        slide_text = ". ".join(content_parts)
+                        slide_tts = text_to_speech(slide_text, language=language)
+                        if slide_tts.get("success") and slide_tts.get("audio_base64"):
+                            slide["audio_base64"] = slide_tts.get("audio_base64")
+            
+            if result.get("summary"):
+                summary_tts = text_to_speech(result["summary"], language=language)
+                if summary_tts.get("success") and summary_tts.get("audio_base64"):
+                    result["summary_audio"] = summary_tts.get("audio_base64")
+        except Exception as tts_err:
+            print(f"[Chat] TTS failed for slides response: {str(tts_err)[:80]}")
+    
+    return result
 
 
 def _generate_story_response(
-    topic: str, style: str, question: str, history_text: str, lang_instruction: str
+    topic: str, style: str, question: str, history_text: str, lang_instruction: str, language: str = "en"
 ) -> dict:
-    """Generate a narrative/story response."""
+    """Generate a narrative/story response. For auditory style, also add TTS audio."""
     system = f"""You are NeuroLearn AI, explaining with stories.
 Topic: {topic}
 {lang_instruction}
@@ -707,15 +891,30 @@ Create an engaging story-based explanation:
     text = ask_mistral(system, prompt, max_tokens=1000)
     try:
         result = json.loads(text.replace("```json", "").replace("```", "").strip())
-        return result
     except:
         return {"response": text, "format": "text"}
+    
+    # If auditory style, generate TTS (non-fatal)
+    if style == "auditory":
+        try:
+            from tools.tts_handler import text_to_speech
+            result["format"] = "auditory"
+            
+            for field in ["story", "analogy", "explanation", "key_takeaway"]:
+                if result.get(field):
+                    field_tts = text_to_speech(result[field], language=language)
+                    if field_tts.get("success") and field_tts.get("audio_base64"):
+                        result[f"{field}_audio"] = field_tts.get("audio_base64")
+        except Exception as tts_err:
+            print(f"[Chat] TTS failed for story response: {str(tts_err)[:80]}")
+    
+    return result
 
 
 def _generate_diagram_response(
-    topic: str, style: str, question: str, history_text: str, lang_instruction: str
+    topic: str, style: str, question: str, history_text: str, lang_instruction: str, language: str = "en"
 ) -> dict:
-    """Generate a diagram response with Napkin."""
+    """Generate a diagram response with Napkin. For auditory style, also add TTS audio."""
     system = f"""You are NeuroLearn AI, creating diagram descriptions.
 Topic: {topic}
 {lang_instruction}
@@ -735,19 +934,102 @@ Create a clear diagram description and text explanation:
     text = ask_groq(system, prompt, max_tokens=600)
     try:
         result = json.loads(text.replace("```json", "").replace("```", "").strip())
+    except:
+        return {"response": text, "format": "text"}
 
-        # If Napkin is available, generate the diagram
-        if result.get("diagram_prompt") and os.getenv("NAPKIN_API_KEY"):
+    # If Napkin is available, generate the diagram
+    if result.get("diagram_prompt") and os.getenv("NAPKIN_API_KEY"):
+        try:
             from tools.napkin_handler import generate_napkin_visual
-
             diagram_result = generate_napkin_visual(
                 text=f"{topic} - {result['diagram_prompt']}",
                 style="colorful",
-                language=lang_instruction.get("language", "en"),
             )
             if diagram_result and diagram_result.get("success"):
                 result["image_url"] = diagram_result.get("image_url")
+        except Exception as napkin_err:
+            print(f"[Chat] Napkin failed: {str(napkin_err)[:80]}")
+    
+    # If auditory style, generate TTS (non-fatal)
+    if style == "auditory":
+        try:
+            from tools.tts_handler import text_to_speech
+            result["format"] = "auditory"
+            
+            if result.get("description"):
+                desc_tts = text_to_speech(result["description"], language=language)
+                if desc_tts.get("success") and desc_tts.get("audio_base64"):
+                    result["description_audio"] = desc_tts.get("audio_base64")
+            
+            if result.get("text"):
+                text_tts = text_to_speech(result["text"], language=language)
+                if text_tts.get("success") and text_tts.get("audio_base64"):
+                    result["text_audio"] = text_tts.get("audio_base64")
+        except Exception as tts_err:
+            print(f"[Chat] TTS failed for diagram response: {str(tts_err)[:80]}")
 
-        return result
-    except:
-        return {"response": text, "format": "text"}
+    return result
+
+
+def _generate_auditory_response(
+    topic: str, question: str, history_text: str, lang_instruction: str, language: str = "en"
+) -> dict:
+    """Generate an auditory response with TTS audio. Falls back to text-only if TTS fails."""
+    system = f"""You are NeuroLearn AI, a friendly STEM tutor speaking to a student.
+Topic: {topic}
+{lang_instruction}
+
+Write in NATURAL SPOKEN LANGUAGE - as if talking directly to the student.
+Short sentences. No bullet points. Warm, encouraging tone."""
+
+    prompt = f"""Conversation:
+{history_text if history_text else "Start of conversation"}
+
+Student: {question}
+
+Respond as a warm tutor speaking to the student. Keep it conversational and friendly. Answer the question clearly in 2-3 sentences."""
+
+    try:
+        response_text = ask_groq(system, prompt, max_tokens=500)
+        
+        if not response_text or not response_text.strip():
+            return {
+                "format": "auditory",
+                "response": "I'm unable to process your question right now. Please try again.",
+                "language": language
+            }
+
+        # Generate TTS audio for the response
+        from tools.tts_handler import text_to_speech
+        
+        tts_result = text_to_speech(response_text, language=language)
+
+        if tts_result.get("success") and tts_result.get("audio_base64"):
+            return {
+                "format": "auditory",
+                "response": response_text,
+                "audio_base64": tts_result.get("audio_base64"),
+                "audio_format": "audio/mpeg",
+                "language": language,
+                "voice": tts_result.get("voice")
+            }
+        else:
+            # Graceful fallback: return text response even if TTS fails
+            return {
+                "format": "auditory",
+                "response": response_text,
+                "language": language,
+                "has_audio": False,
+                "fallback_reason": tts_result.get("error", "Audio generation unavailable")
+            }
+    
+    except Exception as e:
+        # Emergency fallback
+        error_message = str(e)[:100]
+        return {
+            "format": "auditory",
+            "response": "I encountered an issue processing your question. Please try again.",
+            "language": language,
+            "has_audio": False,
+            "fallback_reason": f"System error: {error_message}"
+        }

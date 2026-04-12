@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
 import ParticleBackground from '@/components/ParticleBackground';
-import { TopControls } from '@/components/TopControls';
+import { Header } from '@/components/Header';
 import { Sparkles, Rocket } from 'lucide-react';
 import { getCharacterImage } from '@/data/characterImages';
 
@@ -33,7 +33,7 @@ export default function Landing() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden">
       <ParticleBackground />
-      <TopControls />
+      <Header />
 
       {/* Floating characters */}
       {floatingChars.map((char, i) => (

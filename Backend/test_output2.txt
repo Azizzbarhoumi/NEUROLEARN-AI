@@ -1,0 +1,34 @@
+﻿Calling Groq API...
+Response length: 2256 chars
+First 200 chars: '{\n  "format": "auditory",\n  "title": "equations",\n  "greeting": "Hey there, I\'m excited to help you learn about equations. Are you ready to get started?",\n  "segments": [\n    {\n      "segment": 1,\n   '
+Last 100 chars: 'gement": "Keep up the great work, and don\'t be afraid to ask for help if you need it. You got this!"'
+
+DIRECT JSON PARSE FAILED: Expecting ',' delimiter: line 25 column 111 (char 2256)
+CLEANED JSON PARSE FAILED: Expecting ',' delimiter: line 25 column 111 (char 2256)
+REGEX EXTRACT FAILED: Expecting ',' delimiter: line 20 column 6 (char 1797)
+FULL RAW RESPONSE:
+{
+  "format": "auditory",
+  "title": "equations",
+  "greeting": "Hey there, I'm excited to help you learn about equations. Are you ready to get started?",
+  "segments": [
+    {
+      "segment": 1,
+      "title": "What are equations?",
+      "text": "So, you know how we use numbers and symbols to solve problems, right? Well, an equation is basically a statement that says two things are equal. It's like a balance scale, where one side has numbers and symbols, and the other side has more numbers and symbols, and they're all equal. For example, 2x + 3 = 5 is an equation. It's saying that 2 times x, plus 3, is equal to 5."
+    },
+    {
+      "segment": 2,
+      "title": "Solving equations",
+      "text": "Now that we know what an equation is, let's talk about solving them. Solving an equation means finding the value of the variable, which is usually the letter in the equation. To solve an equation, we need to get rid of the numbers and symbols on one side, so that we're left with just the variable. For example, let's go back to 2x + 3 = 5. To solve for x, we need to get rid of the 3 on the left side, so we subtract 3 from both sides, which gives us 2x = 2. Then, we divide both sides by 2, and we get x = 1. So, the value of x is 1."
+    },
+    {
+      "segment": 3,
+      "title": "Real-world applications",
+      "text": "Equations are all around us, and they're used in so many real-world applications. For example, if you're a chef, you might use equations to figure out how much ingredients you need for a recipe. If you're a builder, you might use equations to calculate the cost of materials for a project. Even in your everyday life, you might use equations to balance your checkbook or calculate your taxes. So, equations are not just for math class, they're for life!"
+    }
+  ],
+  "analogy": "Equations are like puzzles, and solving them is like finding the missing piece.",
+  "memory_trick": "To remember how to solve equations, just think 'PEMDAS', which stands for Parentheses, Exponents, Multiplication and Division, and Addition and Subtraction.",
+  "check_in": "So, do you feel more confident about equations now?",
+  "encouragement": "Keep up the great work, and don't be afraid to ask for help if you need it. You got this!"
