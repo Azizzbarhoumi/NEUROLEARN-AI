@@ -4,10 +4,12 @@ Multi-API Architecture:
   Logical   → Groq
   Visual    → Groq (slides JSON)
   Narrative → Mistral
-  Auditory  → Groq + Web Speech API on frontend
-  Voice     → OpenAI Whisper
+  Auditory  → Groq + OpenAI TTS (Audio)
+  Voice     → OpenAI Whisper (Input) + TTS (Output)
 """
+
 import os
+import requests
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -16,6 +18,7 @@ from tools.style_analyzer import analyze_style, get_quiz_questions
 from tools.chatbot import explain_topic, chat_followup
 from tools.pdf_converter import convert_pdf
 from tools.whisper_handler import transcribe_audio
+from tools.tts_handler import text_to_speech
 
 load_dotenv()
 
@@ -28,26 +31,32 @@ VALID_STYLES = ["visual", "narrative", "logical", "auditory", "visual_interactiv
 # ── Health Check ───────────────────────────────────────────────
 @app.route("/", methods=["GET"])
 def health():
-    return jsonify({
-        "service": "NeuroLearn AI Backend",
-        "status": "online",
-        "version": "3.0",
-        "architecture": {
-            "logical":    "Groq llama-3.1-8b-instant",
-            "visual":     "Groq llama-3.1-8b-instant (slides JSON)",
-            "narrative":  "Mistral mistral-small-latest",
-            "auditory":   "Groq llama-3.1-8b-instant + Web Speech API",
-            "voice_input": "OpenAI Whisper"
-        },
-        "endpoints": {
-            "GET  /api/quiz-questions": "Groq generates diagnostic quiz",
-            "POST /api/analyze-style":  "AI Task 1 - Detect learning style",
-            "POST /api/explain":        "AI Task 2 - Generate explanation",
-            "POST /api/chat":           "AI Task 2 - Follow-up question",
-            "POST /api/convert-pdf":    "Convert PDF to student style",
-            "POST /api/transcribe":     "Whisper - Voice to text"
+    return jsonify(
+        {
+            "service": "NeuroLearn AI Backend",
+            "status": "online",
+            "version": "3.0",
+            "architecture": {
+                "logical": "Groq llama-3.1-8b-instant",
+                "visual": "Groq llama-3.1-8b-instant (slides JSON)",
+                "narrative": "Mistral mistral-small-latest",
+                "auditory": "Groq llama-3.1-8b-instant + OpenAI TTS",
+                "voice_input": "OpenAI Whisper",
+                "voice_output": "OpenAI TTS",
+            },
+            "endpoints": {
+                "GET  /api/quiz-questions": "Groq generates diagnostic quiz",
+                "POST /api/analyze-style": "AI Task 1 - Detect learning style",
+                "POST /api/explain": "AI Task 2 - Generate explanation",
+                "POST /api/chat": "AI Task 2 - Follow-up question (with audio for auditory)",
+                "POST /api/tts": "Text-to-Speech - Convert text to audio",
+                "POST /api/convert-pdf": "Convert PDF to student style",
+                "POST /api/transcribe": "Whisper - Voice to text",
+            },
+            "languages_supported": ["en", "fr", "ar"],
+            "learning_styles": ["visual", "logical", "narrative", "auditory", "visual_interactive"],
         }
-    })
+    )
 
 
 # ── GET Quiz Questions (AI Generated) ─────────────────────────
@@ -62,12 +71,9 @@ def quiz_questions_route():
         language = request.args.get("language", "en")
         if language not in ["en", "fr", "ar"]:
             language = "en"
-        
+
         questions = get_quiz_questions(language=language)
-        return jsonify({
-            "success": True,
-            "data": questions
-        })
+        return jsonify({"success": True, "data": questions})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -85,22 +91,17 @@ def analyze_style_route():
         data = request.get_json()
 
         if not data or "quiz_answers" not in data:
-            return jsonify({
-                "success": False,
-                "error": "quiz_answers is required"
-            }), 400
+            return jsonify({"success": False, "error": "quiz_answers is required"}), 400
 
         if not isinstance(data["quiz_answers"], list):
-            return jsonify({
-                "success": False,
-                "error": "quiz_answers must be a list"
-            }), 400
+            return jsonify(
+                {"success": False, "error": "quiz_answers must be a list"}
+            ), 400
 
         if len(data["quiz_answers"]) == 0:
-            return jsonify({
-                "success": False,
-                "error": "quiz_answers cannot be empty"
-            }), 400
+            return jsonify(
+                {"success": False, "error": "quiz_answers cannot be empty"}
+            ), 400
 
         language = data.get("language", "en")
         if language not in ["en", "fr", "ar"]:
@@ -108,10 +109,7 @@ def analyze_style_route():
 
         result = analyze_style(data["quiz_answers"], language=language)
 
-        return jsonify({
-            "success": True,
-            "data": result
-        })
+        return jsonify({"success": True, "data": result})
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -130,28 +128,18 @@ def explain_route():
         data = request.get_json()
 
         if not data:
-            return jsonify({
-                "success": False,
-                "error": "Request body is required"
-            }), 400
+            return jsonify({"success": False, "error": "Request body is required"}), 400
 
         if "topic" not in data:
-            return jsonify({
-                "success": False,
-                "error": "topic is required"
-            }), 400
+            return jsonify({"success": False, "error": "topic is required"}), 400
 
         if "style" not in data:
-            return jsonify({
-                "success": False,
-                "error": "style is required"
-            }), 400
+            return jsonify({"success": False, "error": "style is required"}), 400
 
         if data["style"] not in VALID_STYLES:
-            return jsonify({
-                "success": False,
-                "error": f"style must be one of: {VALID_STYLES}"
-            }), 400
+            return jsonify(
+                {"success": False, "error": f"style must be one of: {VALID_STYLES}"}
+            ), 400
 
         language = data.get("language", "en")
         if language not in ["en", "fr", "ar"]:
@@ -161,16 +149,14 @@ def explain_route():
             topic=data["topic"],
             style=data["style"],
             subject=data.get("subject", "general"),
-            language=language
+            language=language,
         )
 
-        return jsonify({
-            "success": True,
-            "data": result
-        })
+        return jsonify({"success": True, "data": result})
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        error_str = str(e)[:200]  # Truncate long errors to avoid serialization issues
+        return jsonify({"success": False, "error": error_str}), 500
 
 
 # ── AI Task 2: Follow-up Chat ──────────────────────────────────
@@ -191,24 +177,19 @@ def chat_route():
         data = request.get_json()
 
         if not data:
-            return jsonify({
-                "success": False,
-                "error": "Request body is required"
-            }), 400
+            return jsonify({"success": False, "error": "Request body is required"}), 400
 
         required = ["topic", "style", "question"]
         missing = [f for f in required if f not in data]
         if missing:
-            return jsonify({
-                "success": False,
-                "error": f"Missing required fields: {missing}"
-            }), 400
+            return jsonify(
+                {"success": False, "error": f"Missing required fields: {missing}"}
+            ), 400
 
         if data["style"] not in VALID_STYLES:
-            return jsonify({
-                "success": False,
-                "error": f"style must be one of: {VALID_STYLES}"
-            }), 400
+            return jsonify(
+                {"success": False, "error": f"style must be one of: {VALID_STYLES}"}
+            ), 400
 
         language = data.get("language", "en")
         if language not in ["en", "fr", "ar"]:
@@ -219,20 +200,30 @@ def chat_route():
             style=data["style"],
             question=data["question"],
             conversation_history=data.get("conversation_history", []),
-            language=language
+            language=language,
         )
 
-        return jsonify({
-            "success": True,
-            "data": {
-                "question": data["question"],
-                "response": result,
-                "style": data["style"]
+        # Handle both dict and string responses
+        if isinstance(result, dict):
+            # For complex responses (like auditory with audio)
+            response_data = result
+        else:
+            # For simple string responses
+            response_data = {"response": result}
+
+        response_data["question"] = data["question"]
+        response_data["style"] = data["style"]
+
+        return jsonify(
+            {
+                "success": True,
+                "data": response_data,
             }
-        })
+        )
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        error_str = str(e)[:200]  # Truncate long errors
+        return jsonify({"success": False, "error": error_str}), 500
 
 
 # ── PDF Converter ──────────────────────────────────────────────
@@ -247,54 +238,42 @@ def convert_pdf_route():
     """
     try:
         if "file" not in request.files:
-            return jsonify({
-                "success": False,
-                "error": "PDF file is required. Send as form-data with key 'file'"
-            }), 400
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "PDF file is required. Send as form-data with key 'file'",
+                }
+            ), 400
 
         style = request.form.get("style")
         if not style:
-            return jsonify({
-                "success": False,
-                "error": "style is required as a form field"
-            }), 400
+            return jsonify(
+                {"success": False, "error": "style is required as a form field"}
+            ), 400
 
         if style not in VALID_STYLES:
-            return jsonify({
-                "success": False,
-                "error": f"style must be one of: {VALID_STYLES}"
-            }), 400
+            return jsonify(
+                {"success": False, "error": f"style must be one of: {VALID_STYLES}"}
+            ), 400
 
         pdf_file = request.files["file"]
 
         if pdf_file.filename == "":
-            return jsonify({
-                "success": False,
-                "error": "No file selected"
-            }), 400
+            return jsonify({"success": False, "error": "No file selected"}), 400
 
         if not pdf_file.filename.lower().endswith(".pdf"):
-            return jsonify({
-                "success": False,
-                "error": "File must be a .pdf"
-            }), 400
+            return jsonify({"success": False, "error": "File must be a .pdf"}), 400
 
         pdf_bytes = pdf_file.read()
 
         if len(pdf_bytes) == 0:
-            return jsonify({
-                "success": False,
-                "error": "PDF file is empty"
-            }), 400
+            return jsonify({"success": False, "error": "PDF file is empty"}), 400
 
         focus = request.form.get("focus", "full summary")
 
         result = convert_pdf(pdf_bytes, style, focus)
 
-        return jsonify({
-            "success": True,
-            "data": result
-        })
+        return jsonify({"success": True, "data": result})
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
@@ -311,36 +290,128 @@ def transcribe_route():
     """
     try:
         if "file" not in request.files:
-            return jsonify({
-                "success": False,
-                "error": "Audio file is required. Send as form-data with key 'file'"
-            }), 400
+            return jsonify(
+                {
+                    "success": False,
+                    "error": "Audio file is required. Send as form-data with key 'file'",
+                }
+            ), 400
 
         audio_file = request.files["file"]
 
         if audio_file.filename == "":
-            return jsonify({
-                "success": False,
-                "error": "No audio file selected"
-            }), 400
+            return jsonify({"success": False, "error": "No audio file selected"}), 400
 
         audio_bytes = audio_file.read()
 
         if len(audio_bytes) == 0:
-            return jsonify({
-                "success": False,
-                "error": "Audio file is empty"
-            }), 400
+            return jsonify({"success": False, "error": "Audio file is empty"}), 400
 
-        result = transcribe_audio(audio_bytes, audio_file.filename)
+        language = request.form.get("language", "en")
+        if language not in ["en", "fr", "ar"]:
+            language = "en"
 
-        return jsonify({
-            "success": True,
-            "data": result
-        })
+        result = transcribe_audio(audio_bytes, audio_file.filename, language=language)
+
+        return jsonify({"success": True, "data": result})
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ── Text-to-Speech (TTS) ────────────────────────────────────────
+@app.route("/api/tts", methods=["POST"])
+def tts_route():
+    """
+    Convert text to speech for auditory learners.
+    Input: {
+        "text": "text to convert",
+        "language": "en|fr|ar",
+        "voice": "nova|onyx|shimmer" (optional)
+    }
+    Output: { "success": true, "data": { "audio_base64": "...", ... } }
+    """
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({"success": False, "error": "Request body is required"}), 400
+
+        if "text" not in data:
+            return jsonify({"success": False, "error": "text is required"}), 400
+
+        if not data["text"].strip():
+            return jsonify({"success": False, "error": "text cannot be empty"}), 400
+
+        language = data.get("language", "en")
+        if language not in ["en", "fr", "ar"]:
+            language = "en"
+
+        voice = data.get("voice", None)
+
+        from tools.tts_handler import text_to_speech
+
+        result = text_to_speech(data["text"], language=language, voice=voice)
+
+        if result.get("success"):
+            return jsonify({"success": True, "data": result})
+        else:
+            return jsonify(
+                {"success": False, "error": result.get("error", "TTS failed")}
+            ), 500
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ── Image Proxy ─────────────────────────────────────────────────
+@app.route("/api/proxy-image", methods=["GET"])
+def proxy_image():
+    """Proxy to fetch Napkin images that require auth."""
+    from urllib.parse import unquote
+
+    url = request.args.get("url")
+    if not url:
+        return jsonify({"success": False, "error": "No URL provided"}), 400
+
+    url = unquote(url)
+
+    try:
+        napkin_key = os.getenv("NAPKIN_API_KEY")
+        if not napkin_key:
+            return jsonify(
+                {"success": False, "error": "NAPKIN_API_KEY not configured"}
+            ), 500
+
+        headers = {
+            "Authorization": f"Bearer {napkin_key}",
+            "Accept": "image/png,image/jpeg,*/*",
+        }
+
+        resp = requests.get(url, headers=headers, timeout=30)
+
+        if resp.status_code == 403:
+            return jsonify({"success": False, "error": "Napkin auth failed"}), 500
+        elif resp.status_code != 200:
+            return jsonify(
+                {"success": False, "error": f"Napkin error: {resp.status_code}"}
+            ), resp.status_code
+
+        content_type = resp.headers.get("Content-Type", "image/png")
+        return resp.content, 200, {"Content-Type": content_type}
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ── Serve Cached Images ─────────────────────────────────────────
+@app.route("/cache/napkin/<filename>")
+def serve_cached_napkin(filename):
+    """Serve locally cached Napkin images."""
+    from flask import send_from_directory
+
+    cache_dir = os.path.join(os.path.dirname(__file__), "cache", "napkin")
+    return send_from_directory(cache_dir, filename)
 
 
 # ── Run Server ─────────────────────────────────────────────────

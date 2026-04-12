@@ -1,0 +1,20 @@
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Brain shape -->
+  <g id="brain">
+    <path d="M 40 35 Q 35 38 35 45 Q 35 55 40 58 Q 37 58 37 63 Q 37 70 43 73 Q 50 75 50 72" fill="#3b82f6" opacity="0.9"/>
+    <path d="M 60 35 Q 65 38 65 45 Q 65 55 60 58 Q 63 58 63 63 Q 63 70 57 73 Q 50 75 50 72" fill="#8b5cf6" opacity="0.9"/>
+    <ellipse cx="50" cy="50" rx="8" ry="12" fill="#ec4899" opacity="0.8"/>
+  </g>
+  
+  <!-- Neural nodes -->
+  <circle cx="50" cy="25" r="2.5" fill="#3b82f6"/>
+  <circle cx="30" cy="40" r="2" fill="#8b5cf6"/>
+  <circle cx="70" cy="40" r="2" fill="#8b5cf6"/>
+  <circle cx="37" cy="70" r="2" fill="#ec4899"/>
+  <circle cx="63" cy="70" r="2" fill="#ec4899"/>
+  
+  <!-- Lines -->
+  <line x1="50" y1="27.5" x2="50" y2="35" stroke="#3b82f6" stroke-width="0.8"/>
+  <line x1="32" y1="42" x2="40" y2="50" stroke="#8b5cf6" stroke-width="0.6"/>
+  <line x1="68" y1="42" x2="60" y2="50" stroke="#8b5cf6" stroke-width="0.6"/>
+</svg>

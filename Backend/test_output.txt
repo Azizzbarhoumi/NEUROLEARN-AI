@@ -1,0 +1,9 @@
+﻿Calling Groq API...
+Response length: 2103 chars
+First 200 chars: '{\n  "format": "auditory",\n  "title": "equations",\n  "greeting": "Hey there, let\'s talk about something really cool in math - equations! I\'m excited to help you understand this concept.",\n  "segments":'
+Last 100 chars: ' I\'m proud of you for learning about equations! Keep it up, and you\'ll be a math whiz in no time!"\n}'
+
+DIRECT JSON PARSE: SUCCESS
+Keys: ['format', 'title', 'greeting', 'segments', 'analogy', 'memory_trick', 'check_in', 'encouragement']
+Greeting: Hey there, let's talk about something really cool in math - equations! I'm excit
+Segments count: 3

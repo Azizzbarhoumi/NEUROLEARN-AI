@@ -12,7 +12,7 @@ import { explainTopic, chatFollowup, transcribeAudio, type AuditoryData } from '
 const subjects = ['Math', 'Physics', 'Chemistry', 'Biology', 'CS'];
 
 // Get best voice for language
-function getBestVoiceForLanguage(language: string): SpeechSynthesisVoice | undefined {
+export function getBestVoiceForLanguage(language: string): SpeechSynthesisVoice | undefined {
   const voices = window.speechSynthesis.getVoices();
   
   // Map languages to voice language codes
@@ -83,15 +83,45 @@ export default function VoiceMode() {
   // Build full text array from data
   const allTexts = useCallback(() => {
     if (!data) return [];
-    const texts: string[] = [data.greeting];
-    data.segments?.forEach(s => texts.push(`${s.title}. ${s.text}`));
-    if (data.analogy) texts.push(`Here's an analogy: ${data.analogy}`);
-    if (data.encouragement) texts.push(data.encouragement);
-    if (data.check_in) texts.push(data.check_in);
+    const texts: string[] = [];
+    // Safely add greeting
+    if (data.greeting && typeof data.greeting === 'string') {
+      texts.push(data.greeting);
+    }
+    // Safely add segments - filter out any that look like raw JSON
+    if (Array.isArray(data.segments)) {
+      data.segments.forEach(s => {
+        if (s && typeof s === 'object') {
+          const title = (typeof s.title === 'string' && s.title) ? s.title : '';
+          const text = (typeof s.text === 'string' && s.text) ? s.text : '';
+          // Skip segments that look like raw JSON
+          const combined = title ? `${title}. ${text}` : text;
+          if (combined && !combined.startsWith('{') && !combined.startsWith('[')) {
+            texts.push(combined);
+          }
+        }
+      });
+    }
+    if (data.analogy && typeof data.analogy === 'string') texts.push(`Here's an analogy: ${data.analogy}`);
+    if (data.encouragement && typeof data.encouragement === 'string') texts.push(data.encouragement);
+    if (data.check_in && typeof data.check_in === 'string') texts.push(data.check_in);
     return texts;
   }, [data]);
 
   const speakText = useCallback((text: string, onEnd?: () => void) => {
+    // Safety: skip if text is falsy, "undefined", or looks like raw JSON
+    if (!text || text === 'undefined' || text === 'null') {
+      onEnd?.();
+      return;
+    }
+    // Skip if text looks like raw JSON object
+    const trimmed = text.trim();
+    if ((trimmed.startsWith('{') && trimmed.includes('"format"')) ||
+        (trimmed.startsWith('[') && trimmed.includes('"segment"'))) {
+      onEnd?.();
+      return;
+    }
+
     window.speechSynthesis.cancel();
     setSpokenText(text);
     const u = new SpeechSynthesisUtterance(text);

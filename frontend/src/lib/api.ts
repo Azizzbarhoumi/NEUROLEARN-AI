@@ -53,12 +53,17 @@ export interface LogicalData {
 }
 
 export interface Slide {
-  slide: number;
+  slide?: number;
+  slide_number?: number;
   title: string;
-  content: string;
-  visual_hint: string;
-  key_term: string;
-  color: string;
+  content?: string;
+  visual_hint?: string;
+  key_term?: string;
+  color?: string;
+  html_content?: string;
+  speaker_notes?: string;
+  diagram_prompt?: string;
+  diagram_image_url?: string;
 }
 
 export interface SlidesData {
@@ -113,6 +118,20 @@ export interface ChatResponse {
   question: string;
   response: string;
   style: string;
+  format?: string;
+  // Rich content fields
+  title?: string;
+  steps?: any[];
+  slides?: any[];
+  key_takeaway?: string;
+  summary?: string;
+  image_url?: string;
+  description?: string;
+  text?: string;
+  // Narrative fields
+  hook?: string;
+  story?: string;
+  analogy?: string;
 }
 
 export interface PdfResult {

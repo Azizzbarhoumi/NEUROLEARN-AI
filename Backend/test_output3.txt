@@ -1,0 +1,12 @@
+﻿Testing full _auditory function...
+Success! Format: auditory
+Title: equations
+Greeting: Hey there, I'm so excited to help you learn about equations. Are you ready to be
+Segments: 3
+  Segment 1: title='What are equations?', text_len=358
+  Segment 2: title='Solving equations', text_len=391
+  Segment 3: title='Real-world examples', text_len=377
+Analogy: Remember, an equation is like a balance scale, where you nee
+Memory trick: Think of equations as a puzzle, where you need to find the m
+Has audio: False
+Note: Audio generation currently unavailable. Text explanation provided.

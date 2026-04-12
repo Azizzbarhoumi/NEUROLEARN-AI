@@ -28,10 +28,18 @@ export default function VisualMethod() {
     setLoading(true);
     setError(null);
     try {
-      // We now use visual_interactive for dynamic simulation code
-      const data = await explainTopic(topic, 'visual_interactive', subject);
+      const data = await explainTopic(topic, 'visual', subject);
+      console.log('API Response:', data);
+      
+      // Check if slides exist
+      if (!data.slides || data.slides.length === 0) {
+        setError('No slides generated. Please try again.');
+        setLoading(false);
+        return;
+      }
+      
       setVisData(data);
-      addXP(25); // Increased XP for interactive lab
+      addXP(25);
       addTopicExplored(topic);
       setShowXPBadge(true);
       setTimeout(() => setShowXPBadge(false), 3000);
@@ -64,9 +72,9 @@ export default function VisualMethod() {
           </div>
           <div>
             <h1 className="text-3xl font-display font-black gradient-cosmic-text uppercase tracking-tighter">
-              Interactive Visual Lab
+              Visual Presentation
             </h1>
-            <p className="text-xs text-muted-foreground font-display uppercase tracking-widest mt-1">AI-Powered Simulation Engine</p>
+            <p className="text-xs text-muted-foreground font-display uppercase tracking-widest mt-1">AI-Powered Slide Deck</p>
           </div>
         </div>
 
@@ -97,10 +105,10 @@ export default function VisualMethod() {
             <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/2" />
             
             <div className="relative z-10">
-              <div className="text-6xl mb-6 filter drop-shadow-lg">🔬</div>
+              <div className="text-6xl mb-6 filter drop-shadow-lg">🎨</div>
               <h2 className="text-2xl font-display font-black mb-3 text-white uppercase tracking-tight">{t('generateInteractiveLab')}</h2>
               <p className="text-sm text-muted-foreground font-body mb-8 max-w-sm mx-auto leading-relaxed">
-                Describe a concept, and our AI will code a real-time interactive simulation just for you.
+                Describe a concept, and our AI will create a visual slide presentation to help you learn.
               </p>
 
               {/* Topic input with floating label */}
@@ -140,7 +148,7 @@ export default function VisualMethod() {
                 disabled={!topic.trim()}
                 className="w-full max-w-sm py-4 rounded-2xl gradient-cosmic text-primary-foreground font-display font-black text-sm uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-3 shadow-xl shadow-primary/20"
               >
-                Launch Simulation
+                Launch Presentation
                 <ArrowRight className="w-5 h-5" />
               </motion.button>
 
@@ -173,7 +181,7 @@ export default function VisualMethod() {
               <div className="space-y-2">
                 <h3 className="text-xl font-display font-bold text-white uppercase">{t('initializingSandbox')}</h3>
                 <p className="text-sm text-muted-foreground font-body max-w-xs transition-opacity duration-1000">
-                  AI is currently writing the physics engine and animation logic for "{topic}"...
+                  AI is creating your visual presentation on "{topic}"...
                 </p>
               </div>
               <div className="flex gap-2">
@@ -185,13 +193,14 @@ export default function VisualMethod() {
           </motion.div>
         )}
 
-        {/* ─── SIMULATION VIEW ─── */}
+        {/* ─── PRESENTATION VIEW ─── */}
         {visData && !loading && (
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             className="space-y-6"
           >
+            <div className="text-xs text-muted-foreground mb-2">Format: {visData.format}</div>
             {visData.format === 'interactive' ? (
               <InteractiveCanvas 
                 code={visData.canvas_code}
@@ -199,9 +208,12 @@ export default function VisualMethod() {
                 explanation={visData.explanation}
                 keyTakeaway={visData.key_takeaway}
               />
+            ) : visData.format === 'slides' && visData.slides && visData.slides.length > 0 ? (
+              <VisualSlideShow data={visData as any} topic={topic} />
             ) : (
-              // Fallback to slides if needed, though we request interactive
-              visData.format === 'slides' && <VisualSlideShow data={visData as any} topic={topic} />
+              <div className="text-yellow-400 text-center py-8">
+                No slides available. Please try a different topic.
+              </div>
             )}
 
             {/* Controls Footer */}
@@ -212,7 +224,7 @@ export default function VisualMethod() {
                 onClick={() => { setVisData(null); setTopic(''); setError(null); }}
                 className="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-display font-black text-sm uppercase tracking-widest transition-all"
               >
-                Reset Workshop
+                New Presentation
               </motion.button>
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -221,7 +233,7 @@ export default function VisualMethod() {
                 className="flex-1 py-4 rounded-2xl bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary font-display font-black text-sm uppercase tracking-widest transition-all flex items-center justify-center gap-2"
               >
                 <RefreshCw className="w-4 h-4" />
-                Refine Logic
+                Regenerate
               </motion.button>
             </div>
           </motion.div>
