@@ -4,8 +4,8 @@ Multi-API Architecture:
   Logical   → Groq
   Visual    → Groq (slides JSON)
   Narrative → Mistral
-  Auditory  → Groq + Web Speech API on frontend
-  Voice     → OpenAI Whisper
+  Auditory  → Groq + OpenAI TTS (Audio)
+  Voice     → OpenAI Whisper (Input) + TTS (Output)
 """
 
 import os
@@ -18,6 +18,7 @@ from tools.style_analyzer import analyze_style, get_quiz_questions
 from tools.chatbot import explain_topic, chat_followup
 from tools.pdf_converter import convert_pdf
 from tools.whisper_handler import transcribe_audio
+from tools.tts_handler import text_to_speech
 
 load_dotenv()
 
@@ -39,17 +40,21 @@ def health():
                 "logical": "Groq llama-3.1-8b-instant",
                 "visual": "Groq llama-3.1-8b-instant (slides JSON)",
                 "narrative": "Mistral mistral-small-latest",
-                "auditory": "Groq llama-3.1-8b-instant + Web Speech API",
+                "auditory": "Groq llama-3.1-8b-instant + OpenAI TTS",
                 "voice_input": "OpenAI Whisper",
+                "voice_output": "OpenAI TTS",
             },
             "endpoints": {
                 "GET  /api/quiz-questions": "Groq generates diagnostic quiz",
                 "POST /api/analyze-style": "AI Task 1 - Detect learning style",
                 "POST /api/explain": "AI Task 2 - Generate explanation",
-                "POST /api/chat": "AI Task 2 - Follow-up question",
+                "POST /api/chat": "AI Task 2 - Follow-up question (with audio for auditory)",
+                "POST /api/tts": "Text-to-Speech - Convert text to audio",
                 "POST /api/convert-pdf": "Convert PDF to student style",
                 "POST /api/transcribe": "Whisper - Voice to text",
             },
+            "languages_supported": ["en", "fr", "ar"],
+            "learning_styles": ["visual", "logical", "narrative", "auditory", "visual_interactive"],
         }
     )
 
@@ -150,7 +155,8 @@ def explain_route():
         return jsonify({"success": True, "data": result})
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        error_str = str(e)[:200]  # Truncate long errors to avoid serialization issues
+        return jsonify({"success": False, "error": error_str}), 500
 
 
 # ── AI Task 2: Follow-up Chat ──────────────────────────────────
@@ -197,19 +203,27 @@ def chat_route():
             language=language,
         )
 
+        # Handle both dict and string responses
+        if isinstance(result, dict):
+            # For complex responses (like auditory with audio)
+            response_data = result
+        else:
+            # For simple string responses
+            response_data = {"response": result}
+
+        response_data["question"] = data["question"]
+        response_data["style"] = data["style"]
+
         return jsonify(
             {
                 "success": True,
-                "data": {
-                    "question": data["question"],
-                    "response": result,
-                    "style": data["style"],
-                },
+                "data": response_data,
             }
         )
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        error_str = str(e)[:200]  # Truncate long errors
+        return jsonify({"success": False, "error": error_str}), 500
 
 
 # ── PDF Converter ──────────────────────────────────────────────
@@ -293,9 +307,58 @@ def transcribe_route():
         if len(audio_bytes) == 0:
             return jsonify({"success": False, "error": "Audio file is empty"}), 400
 
-        result = transcribe_audio(audio_bytes, audio_file.filename)
+        language = request.form.get("language", "en")
+        if language not in ["en", "fr", "ar"]:
+            language = "en"
+
+        result = transcribe_audio(audio_bytes, audio_file.filename, language=language)
 
         return jsonify({"success": True, "data": result})
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+# ── Text-to-Speech (TTS) ────────────────────────────────────────
+@app.route("/api/tts", methods=["POST"])
+def tts_route():
+    """
+    Convert text to speech for auditory learners.
+    Input: {
+        "text": "text to convert",
+        "language": "en|fr|ar",
+        "voice": "nova|onyx|shimmer" (optional)
+    }
+    Output: { "success": true, "data": { "audio_base64": "...", ... } }
+    """
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({"success": False, "error": "Request body is required"}), 400
+
+        if "text" not in data:
+            return jsonify({"success": False, "error": "text is required"}), 400
+
+        if not data["text"].strip():
+            return jsonify({"success": False, "error": "text cannot be empty"}), 400
+
+        language = data.get("language", "en")
+        if language not in ["en", "fr", "ar"]:
+            language = "en"
+
+        voice = data.get("voice", None)
+
+        from tools.tts_handler import text_to_speech
+
+        result = text_to_speech(data["text"], language=language, voice=voice)
+
+        if result.get("success"):
+            return jsonify({"success": True, "data": result})
+        else:
+            return jsonify(
+                {"success": False, "error": result.get("error", "TTS failed")}
+            ), 500
 
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500

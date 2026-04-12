@@ -1,7 +1,7 @@
 """
 NeuroLearn AI - Multi-API Router
 Logical  → Groq
-Visual   → DeepSeek
+Visual   → napkins
 Gaming   → Groq
 Narrative → Mistral
 Auditory → Groq + Web Speech API on frontend
