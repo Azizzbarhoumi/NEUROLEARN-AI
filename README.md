@@ -1,3 +1,3 @@
 # NeuroLearn AI
+#EDUCATION WEEK TECH CHALLENGE
 
-Personalized learning paths powered by AI.
