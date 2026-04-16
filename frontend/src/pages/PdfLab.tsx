@@ -8,6 +8,7 @@ import ParticleBackground from '@/components/ParticleBackground';
 import { TopControls } from '@/components/TopControls';
 import { ArrowLeft, FileText, Upload, Copy, Check, Loader2, Play, Pause, Headphones, Square } from 'lucide-react';
 import { convertPdf } from '@/lib/api';
+import MermaidRenderer from '@/components/visual/MermaidRenderer';
 
 const methodsConfig = [
   { key: 'logical', icon: '🧩', labelKey: 'logical' },
@@ -22,19 +23,27 @@ const focusesConfig = ['fullSummary', 'keyConc', 'formulasOnly', 'examplesOnly']
 function getBestVoiceForLanguage(language: string): SpeechSynthesisVoice | undefined {
   const voices = window.speechSynthesis.getVoices();
   
-  // Map languages to voice language codes
+  if (!voices.length) return undefined;
+  
+  // Map languages to voice language codes with priority
+  // Priority order matters - French France for native French accent, Arabic SA for MSA
   const voiceLangMap: Record<string, string[]> = {
     en: ['en-US', 'en-GB', 'en-AU', 'en'],
-    fr: ['fr-FR', 'fr-CA', 'fr'],
-    ar: ['ar-SA', 'ar-AE', 'ar'],
+    fr: ['fr-FR', 'fr-CA', 'fr-BE', 'fr'],  // Prioritize Metropolitan French
+    ar: ['ar-SA', 'ar-AE', 'ar-EG', 'ar'],  // Prioritize Modern Standard Arabic / Gulf Arabic
   };
   
   const targetLangs = voiceLangMap[language] || ['en-US', 'en'];
   
-  // Try to find exact match
+  // Try to find exact match with strict comparison
   for (const targetLang of targetLangs) {
-    const exactMatch = voices.find(v => v.lang.includes(targetLang));
+    // First try exact match
+    const exactMatch = voices.find(v => v.lang === targetLang);
     if (exactMatch) return exactMatch;
+    
+    // Then try startsWith for region variants
+    const regionMatch = voices.find(v => v.lang.startsWith(targetLang.substring(0, 5)));
+    if (regionMatch) return regionMatch;
   }
   
   // Fallback to first voice that starts with the language code
@@ -47,18 +56,18 @@ function getBestVoiceForLanguage(language: string): SpeechSynthesisVoice | undef
 }
 
 export default function PdfLab() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const { profile, addXP } = useUser();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const methods = methodsConfig.map(m => ({ ...m, label: t(m.labelKey) }));
-  const focuses = focusesConfig.map(f => t(f));
+  const focusesDisplay = focusesConfig.map(f => t(f));
 
   const defaultMethod = getApiStyle(profile.learningStyle);
   const [file, setFile] = useState<File | null>(null);
   const [method, setMethod] = useState(defaultMethod);
-  const [focus, setFocus] = useState(focuses[0]);
+  const [focus, setFocus] = useState(focusesConfig[0]); // Store the KEY, not the translation
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [pagesProcessed, setPagesProcessed] = useState<number | null>(null);
@@ -154,11 +163,25 @@ export default function PdfLab() {
     setError(null);
     setResult(null);
     try {
-      const data = await convertPdf(file, method, focus);
+      const language = i18n.language || 'en';
+      
+      // Convert focus key to backend format
+      const focusMap: Record<string, string> = {
+        'fullSummary': 'full summary',
+        'keyConc': 'key concepts',
+        'formulasOnly': 'formulas only',
+        'examplesOnly': 'examples only'
+      };
+      const focusValue = focusMap[focus] || focus;
+      
+      console.log('PDF Lab - Converting with:', { style: method, focus: focusValue, language });
+      const data = await convertPdf(file, method, focusValue, language);
+      console.log('PDF Lab - Conversion successful:', data);
       setResult(data.converted_content || '');
       setPagesProcessed(data.pages_processed || null);
       addXP(25);
     } catch (e: any) {
+      console.error('PDF Lab - Conversion error:', e);
       setError(e.message || t('failedToGenerate'));
     } finally {
       setLoading(false);
@@ -238,12 +261,15 @@ export default function PdfLab() {
             onChange={e => setFocus(e.target.value)}
             className="w-full rounded-xl bg-secondary border border-border px-4 py-2.5 text-sm font-body text-foreground"
           >
-            {focuses.map(f => <option key={f}>{f}</option>)}
+            {focusesConfig.map((key, idx) => (
+              <option key={key} value={key}>{focusesDisplay[idx]}</option>
+            ))}
           </select>
         </motion.div>
 
         {/* Convert button */}
         <motion.button
+          type="button"
           variants={item}
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -303,7 +329,19 @@ export default function PdfLab() {
               
               {method !== 'auditory' ? (
                 <div className="prose prose-invert prose-sm max-w-none font-body">
-                  <ReactMarkdown>{result}</ReactMarkdown>
+                  <ReactMarkdown
+                    components={{
+                      code({ node, inline, className, children, ...props }: any) {
+                        const match = /language-(\w+)/.exec(className || '');
+                        if (!inline && match && match[1] === 'mermaid') {
+                          return <MermaidRenderer code={String(children).replace(/\n$/, '')} />;
+                        }
+                        return <code className={className} {...props}>{children}</code>;
+                      }
+                    }}
+                  >
+                    {result}
+                  </ReactMarkdown>
                 </div>
               ) : (
                 <div className="flex flex-col py-4 h-[400px] gap-6">

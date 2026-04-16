@@ -30,9 +30,9 @@ export default function Dashboard() {
     { icon: FlaskConical, label: t('logicLab'), sub: '', route: '/logic-lab', color: 'text-cosmic-green', xp: '+15 XP' },
     { icon: Gamepad2, label: t('gameZone'), sub: '', route: '/game-zone', color: 'text-cosmic-pink', xp: '+20 XP' },
     { icon: Headphones, label: t('voiceMode'), sub: '', route: '/voice-mode', color: 'text-cosmic-gold', xp: '+10 XP' },
-    { icon: FileText, label: 'PDF Lab', sub: '', route: '/pdf-lab', color: 'text-cosmic-cyan', xp: '+25 XP' },
-    { icon: Eye, label: 'Visual Method', sub: '', route: '/visual-method', color: 'text-cosmic-blue', xp: '+15 XP' },
-    { icon: BookMarked, label: 'Story Mode', sub: '', route: '/narrative-method', color: 'text-cosmic-pink', xp: '+15 XP' },
+    { icon: FileText, label: t('pdfLab'), sub: '', route: '/pdf-lab', color: 'text-cosmic-cyan', xp: '+25 XP' },
+    { icon: Eye, label: t('visualMethod'), sub: '', route: '/visual-method', color: 'text-cosmic-blue', xp: '+15 XP' },
+    { icon: BookMarked, label: t('storyMode'), sub: '', route: '/narrative-method', color: 'text-cosmic-pink', xp: '+15 XP' },
   ];
 
   const todayPlan = [

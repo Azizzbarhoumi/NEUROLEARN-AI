@@ -151,16 +151,24 @@ export interface TranscribeResult {
 // ── API Helpers ───────────────────────────────────────────────
 
 async function apiRequest<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${url}`, options);
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `Request failed (${res.status})`);
+  try {
+    const res = await fetch(`${API_BASE}${url}`, options);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const errorMsg = body.error || `Request failed (${res.status})`;
+      console.error(`API Error [${res.status}]:`, errorMsg, body);
+      throw new Error(errorMsg);
+    }
+    const json = await res.json();
+    if (json.success === false) {
+      console.error('API Error (success=false):', json.error, json);
+      throw new Error(json.error || 'Unknown error');
+    }
+    return json.data as T;
+  } catch (e: any) {
+    console.error('API Request Exception:', e.message);
+    throw e;
   }
-  const json = await res.json();
-  if (json.success === false) {
-    throw new Error(json.error || 'Unknown error');
-  }
-  return json.data as T;
 }
 
 function getCurrentLanguage(): string {
@@ -220,12 +228,14 @@ export async function chatFollowup(
 export async function convertPdf(
   file: File,
   style: string,
-  focus: string
+  focus: string,
+  language: string = 'en'
 ): Promise<PdfResult> {
   const fd = new FormData();
   fd.append('file', file);
   fd.append('style', style);
   fd.append('focus', focus);
+  fd.append('language', language);
   return apiRequest<PdfResult>('/api/convert-pdf', {
     method: 'POST',
     body: fd,

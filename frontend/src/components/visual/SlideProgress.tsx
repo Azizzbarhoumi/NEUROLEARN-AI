@@ -10,11 +10,12 @@ export default function SlideProgress({ countdown, isAutoPlaying, color }: Slide
   return (
     <div className="w-full h-[3px] bg-secondary/30 overflow-hidden">
       <div
-        className="h-full transition-all duration-[50ms] ease-linear"
+        className="h-full transition-all ease-linear"
         style={{
           width: `${countdown}%`,
           background: color,
           boxShadow: `0 0 6px ${color}88`,
+          transitionDuration: '50ms',
         }}
       />
     </div>

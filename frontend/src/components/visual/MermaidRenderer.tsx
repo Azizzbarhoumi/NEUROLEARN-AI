@@ -69,7 +69,12 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
   }, [code]);
 
   if (error) {
-    return null;
+    return (
+      <div className="p-4 border-2 border-dashed border-red-500/50 rounded-xl bg-red-500/10 text-red-500 text-xs font-mono">
+        ⚠️ Diagram Render Error: {error}
+        <pre className="mt-2 text-[10px] overflow-auto">{code}</pre>
+      </div>
+    );
   }
 
   if (!svg) {

@@ -232,9 +232,10 @@ def convert_pdf_route():
     """
     Convert student PDF to their learning style.
     Form data:
-        file  : PDF file (required)
-        style : learning style (required)
-        focus : full summary | key concepts | formulas only | examples only (optional)
+        file     : PDF file (required)
+        style    : learning style (required)
+        focus    : full summary | key concepts | formulas only | examples only (optional)
+        language : en, fr, ar (optional, defaults to en)
     """
     try:
         if "file" not in request.files:
@@ -270,13 +271,26 @@ def convert_pdf_route():
             return jsonify({"success": False, "error": "PDF file is empty"}), 400
 
         focus = request.form.get("focus", "full summary")
+        language = request.form.get("language", "en")
+        
+        if language not in ["en", "fr", "ar"]:
+            language = "en"
 
-        result = convert_pdf(pdf_bytes, style, focus)
+        result = convert_pdf(pdf_bytes, style, focus, language)
+        
+        if not result.get("success", True):
+            return jsonify({
+                "success": False,
+                "error": result.get("error", "Failed to convert PDF")
+            }), 400
 
         return jsonify({"success": True, "data": result})
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        import traceback
+        error_msg = str(e)
+        traceback.print_exc()
+        return jsonify({"success": False, "error": error_msg}), 500
 
 
 # ── Whisper Voice Input ────────────────────────────────────────

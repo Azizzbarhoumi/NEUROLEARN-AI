@@ -11,10 +11,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Language to voice mapping
+# OpenAI TTS works best with specific voices for different languages
 LANGUAGE_VOICE_MAP = {
     "en": "nova",      # Clear, natural English voice
-    "fr": "onyx",      # French voice
-    "ar": "shimmer",   # Arabic-suitable voice
+    "fr": "echo",      # Works better with Romance languages
+    "ar": "shimmer",   # Works better with Arabic/Semitic languages
 }
 
 # Language names for OpenAI

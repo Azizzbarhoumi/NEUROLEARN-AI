@@ -8,7 +8,7 @@ Auditory → Groq + Web Speech API on frontend
 """
 import os
 from groq import Groq
-from mistralai.client import Mistral
+from mistralai import Mistral
 from openai import OpenAI
 from dotenv import load_dotenv
 

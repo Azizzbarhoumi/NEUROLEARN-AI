@@ -31,6 +31,64 @@
 }
 
 /* ─────────────────────────────────────────────────────── */
+/* Flame Flicker Animation                               */
+/* ─────────────────────────────────────────────────────── */
+
+@keyframes flame-flicker {
+  0%, 100% {
+    opacity: 0.85;
+    transform: scaleX(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+.flame-flicker {
+  animation: flame-flicker 1.5s ease-in-out infinite;
+}
+
+/* ─────────────────────────────────────────────────────── */
+/* Online Pulse Animation                                */
+/* ─────────────────────────────────────────────────────── */
+
+@keyframes online-pulse {
+  0% {
+    box-shadow: 0 0 0 0px rgba(124, 247, 181, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(124, 247, 181, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0px rgba(124, 247, 181, 0);
+  }
+}
+
+.online-pulse {
+  animation: online-pulse 2s ease-out infinite;
+}
+
+/* ─────────────────────────────────────────────────────── */
+/* Gold Glow for Top Streak                              */
+/* ─────────────────────────────────────────────────────── */
+
+@keyframes gold-glow {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+  }
+}
+
+.gold-glow {
+  animation: gold-glow 2s ease-in-out infinite;
+}
+
+/* ─────────────────────────────────────────────────────── */
 /* Glass and Gradient Effects                            */
 /* ─────────────────────────────────────────────────────── */
 
@@ -55,16 +113,24 @@
 /* Theme Colors                                          */
 /* ─────────────────────────────────────────────────────── */
 
-.cosmic-cyan {
-  --color-cosmic-cyan: rgb(124, 111, 247);
+.text-cosmic-cyan {
+  color: rgb(124, 111, 247);
 }
 
-.cosmic-gold {
-  --color-cosmic-gold: rgb(255, 215, 0);
+.text-cosmic-gold {
+  color: rgb(255, 215, 0);
 }
 
-.cosmic-green {
-  --color-cosmic-green: rgb(124, 247, 181);
+.text-cosmic-green {
+  color: rgb(124, 247, 181);
+}
+
+.bg-cosmic-green {
+  background-color: rgb(124, 247, 181);
+}
+
+.bg-cosmic-gold {
+  background-color: rgb(255, 215, 0);
 }
 
 /* ─────────────────────────────────────────────────────── */
@@ -84,19 +150,29 @@
 /* Scrollbar Styling                                      */
 /* ─────────────────────────────────────────────────────── */
 
-.max-h-\[380px\]::-webkit-scrollbar {
-  width: 6px;
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
-.max-h-\[380px\]::-webkit-scrollbar-track {
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Horizontal scrollable containers */
+.overflow-x-auto::-webkit-scrollbar {
+  height: 6px;
+}
+
+.overflow-x-auto::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.max-h-\[380px\]::-webkit-scrollbar-thumb {
+.overflow-x-auto::-webkit-scrollbar-thumb {
   background: rgba(139, 92, 246, 0.3);
   border-radius: 3px;
 }
 
-.max-h-\[380px\]::-webkit-scrollbar-thumb:hover {
+.overflow-x-auto::-webkit-scrollbar-thumb:hover {
   background: rgba(139, 92, 246, 0.5);
 }

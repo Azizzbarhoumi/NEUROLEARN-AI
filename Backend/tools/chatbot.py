@@ -176,6 +176,9 @@ Wrap in ```json code block."""
             if isinstance(slides_data, list) and len(slides_data) > 0:
                 # Good - slides already in correct format
                 result["format"] = "slides"
+                # Ensure title is set
+                if "title" not in result:
+                    result["title"] = topic
             else:
                 # slides key exists but is empty or wrong format - try slide keys
                 result = _convert_slide_keys_to_list(result, topic)
@@ -215,67 +218,28 @@ Wrap in ```json code block."""
             f"[Visual] Total slides: {len(slides)}, Slides with diagram_prompt: {diagram_count}"
         )
 
-        if isinstance(slides, list) and slides:
-            # Get first slide with diagram_prompt
-            first_slide_with_prompt = next(
-                (
-                    s
-                    for s in slides
-                    if isinstance(s, dict) and s.get("diagram_prompt", "").strip()
-                ),
-                None,
-            )
-
-            # Decide strategy: Napkin (if key exists + works) or Mermaid
-            use_napkin = False
-            has_napkin_key = bool(os.getenv("NAPKIN_API_KEY"))
-
-            if has_napkin_key and first_slide_with_prompt:
-                diagram_prompt = first_slide_with_prompt.get("diagram_prompt")
-                print(
-                    f"[Napkin] Testing diagram generation for: {first_slide_with_prompt.get('title', 'Untitled')}"
-                )
-
-                napkin_prompt = f"""Create an educational diagram for {subject} topic: {topic} (in {lang_name}).
-
-Slide concept: {diagram_prompt}
-
-Make it SIMPLE, CLEAR, and EDUCATIONAL for students ages 10-18.
-Use labels in {lang_name} and clear visual hierarchy."""
-
-                test_result = generate_napkin_visual(
-                    text=napkin_prompt,
-                    style="colorful",
-                    visual_type="auto",
-                    language=language,
-                )
-                use_napkin = test_result and test_result.get("success")
-                if use_napkin:
-                    print(f"[Napkin] SUCCESS - using Napkin for all slides")
-                else:
-                    print(f"[Napkin failed - using Mermaid for all slides")
-
-            # Generate diagrams for ALL slides based on decision
-            from tools.mermaid_handler import generate_mermaid_svg
-
+        if isinstance(slides, list) and slides and os.getenv("NAPKIN_API_KEY"):
             for slide in slides:
                 if isinstance(slide, dict):
                     diagram_prompt = slide.get("diagram_prompt")
                     if diagram_prompt and diagram_prompt.strip():
                         try:
-                            if use_napkin:
-                                napkin_prompt = f"""Create an educational diagram for {subject} topic: {topic} (in {lang_name}).
+                            print(
+                                f"[Napkin] Generating diagram for slide: {slide.get('title', 'Untitled')}"
+                            )
+                            # Create a clear, educational prompt for Napkin in the correct language
+                            napkin_prompt = f"""Create an educational diagram for {subject} topic: {topic} (in {lang_name}).
 
 Slide concept: {diagram_prompt}
 
 Make it SIMPLE, CLEAR, and EDUCATIONAL for students ages 10-18.
-Use labels in {lang_name}."""
+Use labels in {lang_name} and clear visual hierarchy.
+The entire diagram text and labels must be in {lang_name}."""
 
                             diagram_result = generate_napkin_visual(
                                 text=napkin_prompt,
                                 style="colorful",
                                 visual_type="auto",
-                                language=language,
                             )
                             if diagram_result and diagram_result.get("success"):
                                 slide["diagram_image_url"] = diagram_result.get(
@@ -287,7 +251,7 @@ Use labels in {lang_name}."""
                             else:
                                 print(f"[Napkin] FAILED: {diagram_result}")
                         except Exception as e:
-                            print(f"[Diagram] Skipping: {str(e)[:50]}")
+                            print(f"[Napkin] Skipping: {str(e)[:50]}")
 
         return result
 
@@ -529,65 +493,14 @@ Return this exact JSON:
 
 Generate exactly 3 segments. Write ALL text as natural spoken language. No bullet points anywhere."""
 
-    text = ask_groq(system, prompt, max_tokens=2500)
-    
-    # Step 1: Parse JSON from Groq response
-    result = None
+    text = ask_groq(system, prompt, max_tokens=1500)
     try:
         result = json.loads(text)
-    except json.JSONDecodeError:
-        # Try cleaning markdown code blocks
-        import re
-        clean = text.replace("```json", "").replace("```", "").strip()
-        try:
-            result = json.loads(clean)
-        except:
-            # Try regex extraction
-            json_match = re.search(r'\{[\s\S]*\}', clean)
-            if json_match:
-                try:
-                    result = json.loads(json_match.group())
-                except:
-                    result = None
-            
-            # If still failing, try to repair truncated JSON
-            if result is None:
-                try:
-                    # The response may be cut off - try to close it
-                    repair = clean.rstrip()
-                    # Close any open strings
-                    if repair.count('"') % 2 != 0:
-                        repair += '"'
-                    # Close open brackets/braces
-                    open_brackets = repair.count('[') - repair.count(']')
-                    open_braces = repair.count('{') - repair.count('}')
-                    for _ in range(open_brackets):
-                        repair += ']'
-                    for _ in range(open_braces):
-                        repair += '}'
-                    result = json.loads(repair)
-                except:
-                    result = None
-    
-    # If all parsing failed, return minimal valid response
-    if result is None:
-        return {
-            "format": "auditory",
-            "title": topic,
-            "greeting": f"Let me explain {topic} to you.",
-            "segments": [{"segment": 1, "title": "Explanation", "text": f"I'd like to explain {topic} but I'm having a temporary issue. Please try again."}],
-            "language": language,
-            "has_audio": False,
-            "note": "Parsing failed - text fallback provided"
-        }
-    
-    # Ensure format field
-    if "format" not in result:
-        result["format"] = "auditory"
-    
-    # Step 2: Try to generate TTS audio (non-fatal - content is preserved regardless)
-    has_audio_components = False
-    try:
+        
+        # Track whether we could generate audio
+        has_audio_components = False
+        
+        # Generate TTS audio for auditory format
         from tools.tts_handler import text_to_speech
         
         # Generate audio for greeting
@@ -633,17 +546,47 @@ Generate exactly 3 segments. Write ALL text as natural spoken language. No bulle
             if enc_tts.get("success") and enc_tts.get("audio_base64"):
                 result["encouragement_audio"] = enc_tts.get("audio_base64")
                 has_audio_components = True
-    except Exception as tts_error:
-        # TTS failed but we still have the content - that's fine
-        print(f"[Auditory] TTS generation failed: {str(tts_error)[:100]}")
-    
-    result["language"] = language
-    result["has_audio"] = has_audio_components
-    
-    if not has_audio_components:
-        result["note"] = "Audio generation currently unavailable. Text explanation provided."
-    
-    return result
+        
+        result["language"] = language
+        result["has_audio"] = has_audio_components
+        
+        # If no audio was generated, add a helpful note
+        if not has_audio_components:
+            result["note"] = "Audio generation currently unavailable. Text explanation provided."
+        
+        return result
+        
+    except json.JSONDecodeError:
+        clean = text.replace("```json", "").replace("```", "").strip()
+        try:
+            result = json.loads(clean)
+            result["language"] = language
+            result["has_audio"] = False
+            result["note"] = "Audio unavailable - text provided"
+            return result
+        except:
+            # Ultimate fallback - return minimal valid response
+            return {
+                "format": "auditory",
+                "title": topic,
+                "greeting": f"Let me explain {topic} to you.",
+                "segments": [{"segment": 1, "text": text[:500]}],
+                "language": language,
+                "has_audio": False,
+                "note": "Explanation provided in text format"
+            }
+    except Exception as e:
+        # Return text-only version without marking as error
+        error_msg = str(e)[:100]
+        return {
+            "format": "auditory",
+            "title": topic,
+            "greeting": f"Let me explain {topic} to you.",
+            "segments": [{"segment": 1, "text": text[:500] if text else "Please try again later."}],
+            "language": language,
+            "has_audio": False,
+            "note": "Audio unavailable - text explanation provided"
+        }
 
 
 # ── Follow-up Chat ─────────────────────────────────────────────
@@ -755,18 +698,15 @@ Tutor:"""
     text = ask_groq(system, prompt, max_tokens=600)
     result = {"response": text, "format": "text"}
     
-    # If auditory style, add TTS audio (non-fatal)
+    # If auditory style, add TTS audio
     if style == "auditory":
-        try:
-            from tools.tts_handler import text_to_speech
-            tts_result = text_to_speech(text, language=language)
-            if tts_result.get("success") and tts_result.get("audio_base64"):
-                result["audio_base64"] = tts_result.get("audio_base64")
-                result["format"] = "auditory"
-                result["audio_format"] = "audio/mpeg"
-                result["voice"] = tts_result.get("voice")
-        except Exception as tts_err:
-            print(f"[Chat] TTS failed for text response: {str(tts_err)[:80]}")
+        from tools.tts_handler import text_to_speech
+        tts_result = text_to_speech(text, language=language)
+        if tts_result.get("success") and tts_result.get("audio_base64"):
+            result["audio_base64"] = tts_result.get("audio_base64")
+            result["format"] = "auditory"
+            result["audio_format"] = "audio/mpeg"
+            result["voice"] = tts_result.get("voice")
     
     return result
 
@@ -806,21 +746,19 @@ Generate 3-5 clear steps."""
     text = ask_groq(system, prompt, max_tokens=1200)
     try:
         result = json.loads(text.replace("```json", "").replace("```", "").strip())
-    except:
-        response_text = text[:500] if text else "Unable to generate steps"
-        return {"response": response_text, "format": "text"}
-    
-    # If auditory style, generate TTS (non-fatal)
-    if style == "auditory":
-        try:
+        
+        # If auditory style, generate TTS for title and summary
+        if style == "auditory":
             from tools.tts_handler import text_to_speech
             result["format"] = "auditory"
             
+            # Generate audio for title
             if result.get("title"):
                 title_tts = text_to_speech(result["title"], language=language)
                 if title_tts.get("success") and title_tts.get("audio_base64"):
                     result["title_audio"] = title_tts.get("audio_base64")
             
+            # Generate audio for each step content
             if result.get("steps"):
                 for step in result["steps"]:
                     if step.get("content"):
@@ -828,14 +766,16 @@ Generate 3-5 clear steps."""
                         if content_tts.get("success") and content_tts.get("audio_base64"):
                             step["audio_base64"] = content_tts.get("audio_base64")
             
+            # Generate audio for summary
             if result.get("summary"):
                 summary_tts = text_to_speech(result["summary"], language=language)
                 if summary_tts.get("success") and summary_tts.get("audio_base64"):
                     result["summary_audio"] = summary_tts.get("audio_base64")
-        except Exception as tts_err:
-            print(f"[Chat] TTS failed for steps response: {str(tts_err)[:80]}")
-    
-    return result
+        
+        return result
+    except:
+        response_text = text[:500] if text else "Unable to generate steps"
+        return {"response": response_text, "format": "text"}
 
 
 def _generate_slides_response(
@@ -870,12 +810,9 @@ Make HTML self-contained with inline styles, dark backgrounds, emojis."""
     text = ask_groq(system, prompt, max_tokens=1500)
     try:
         result = json.loads(text.replace("```json", "").replace("```", "").strip())
-    except:
-        return {"response": text, "format": "text"}
-    
-    # If auditory style, generate TTS (non-fatal)
-    if style == "auditory":
-        try:
+        
+        # If auditory style, generate TTS for slides content
+        if style == "auditory":
             from tools.tts_handler import text_to_speech
             result["format"] = "auditory"
             
@@ -893,14 +830,15 @@ Make HTML self-contained with inline styles, dark backgrounds, emojis."""
                         if slide_tts.get("success") and slide_tts.get("audio_base64"):
                             slide["audio_base64"] = slide_tts.get("audio_base64")
             
+            # Generate audio for summary
             if result.get("summary"):
                 summary_tts = text_to_speech(result["summary"], language=language)
                 if summary_tts.get("success") and summary_tts.get("audio_base64"):
                     result["summary_audio"] = summary_tts.get("audio_base64")
-        except Exception as tts_err:
-            print(f"[Chat] TTS failed for slides response: {str(tts_err)[:80]}")
-    
-    return result
+        
+        return result
+    except:
+        return {"response": text, "format": "text"}
 
 
 def _generate_story_response(
@@ -930,24 +868,22 @@ Create an engaging story-based explanation:
     text = ask_mistral(system, prompt, max_tokens=1000)
     try:
         result = json.loads(text.replace("```json", "").replace("```", "").strip())
-    except:
-        return {"response": text, "format": "text"}
-    
-    # If auditory style, generate TTS (non-fatal)
-    if style == "auditory":
-        try:
+        
+        # If auditory style, generate TTS for story segments
+        if style == "auditory":
             from tools.tts_handler import text_to_speech
             result["format"] = "auditory"
             
+            # Generate audio for each major segment
             for field in ["story", "analogy", "explanation", "key_takeaway"]:
                 if result.get(field):
                     field_tts = text_to_speech(result[field], language=language)
                     if field_tts.get("success") and field_tts.get("audio_base64"):
                         result[f"{field}_audio"] = field_tts.get("audio_base64")
-        except Exception as tts_err:
-            print(f"[Chat] TTS failed for story response: {str(tts_err)[:80]}")
-    
-    return result
+        
+        return result
+    except:
+        return {"response": text, "format": "text"}
 
 
 def _generate_diagram_response(
@@ -973,25 +909,20 @@ Create a clear diagram description and text explanation:
     text = ask_groq(system, prompt, max_tokens=600)
     try:
         result = json.loads(text.replace("```json", "").replace("```", "").strip())
-    except:
-        return {"response": text, "format": "text"}
 
-    # If Napkin is available, generate the diagram
-    if result.get("diagram_prompt") and os.getenv("NAPKIN_API_KEY"):
-        try:
+        # If Napkin is available, generate the diagram
+        if result.get("diagram_prompt") and os.getenv("NAPKIN_API_KEY"):
             from tools.napkin_handler import generate_napkin_visual
+
             diagram_result = generate_napkin_visual(
                 text=f"{topic} - {result['diagram_prompt']}",
                 style="colorful",
             )
             if diagram_result and diagram_result.get("success"):
                 result["image_url"] = diagram_result.get("image_url")
-        except Exception as napkin_err:
-            print(f"[Chat] Napkin failed: {str(napkin_err)[:80]}")
-    
-    # If auditory style, generate TTS (non-fatal)
-    if style == "auditory":
-        try:
+        
+        # If auditory style, generate TTS for text content
+        if style == "auditory":
             from tools.tts_handler import text_to_speech
             result["format"] = "auditory"
             
@@ -1004,10 +935,10 @@ Create a clear diagram description and text explanation:
                 text_tts = text_to_speech(result["text"], language=language)
                 if text_tts.get("success") and text_tts.get("audio_base64"):
                     result["text_audio"] = text_tts.get("audio_base64")
-        except Exception as tts_err:
-            print(f"[Chat] TTS failed for diagram response: {str(tts_err)[:80]}")
 
-    return result
+        return result
+    except:
+        return {"response": text, "format": "text"}
 
 
 def _generate_auditory_response(
